@@ -1,7 +1,8 @@
 class_name DeckBuilder
 extends Control
 ## Montador de baralhos. Clique numa carta do acervo para adicionar uma cópia,
-## botão direito nela (ou clique na linha da lista) remove uma. Salva em
+## botão direito nela (toque longo no celular) ou clique na linha da lista
+## remove uma. Arrastar as cartas rola o acervo. Salva em
 ## user://decks.json via DeckStore. Regra: pelo menos DeckStore.MIN_UNITS unidades.
 
 signal back_requested
@@ -30,6 +31,7 @@ var stats: RichTextLabel
 var deck_list: ItemList
 var detail: RichTextLabel
 var status: Label
+var cell_w := CardView.FULL_SIZE.x   # largura da carta no acervo (colunas da grade)
 
 
 func _ready() -> void:
@@ -58,34 +60,40 @@ func _build() -> void:
 	bg.color = Color("#14161b")
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	var c := UiProfile.compact
+	var face := Vector2(100, 50) if c else CardView.FULL_SIZE
+	cell_w = face.x
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 10)
+		margin.add_theme_constant_override("margin_" + side, 6 if c else 10)
 	add_child(margin)
 	var root := HBoxContainer.new()
-	root.add_theme_constant_override("separation", 12)
+	root.add_theme_constant_override("separation", 8 if c else 12)
 	margin.add_child(root)
 
 	# ---- acervo
 	var left := VBoxContainer.new()
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_theme_constant_override("separation", 6)
+	left.add_theme_constant_override("separation", 4 if c else 6)
 	root.add_child(left)
-	var title := _label("MONTAR BARALHO", 26)
-	title.add_theme_color_override("font_color", GOLD)
-	left.add_child(title)
+	if not c:
+		var title := _label("MONTAR BARALHO", 26)
+		title.add_theme_color_override("font_color", GOLD)
+		left.add_child(title)
 	var filters := HBoxContainer.new()
-	filters.add_theme_constant_override("separation", 8)
+	filters.add_theme_constant_override("separation", 6 if c else 8)
 	left.add_child(filters)
 	kind_opt = _option(KIND_FILTERS, filters)
 	suit_opt = _option(SUIT_FILTERS, filters)
 	search = LineEdit.new()
-	search.placeholder_text = "Buscar por nome ou texto..."
+	search.placeholder_text = "Buscar..." if c else "Buscar por nome ou texto..."
 	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	search.custom_minimum_size.y = UiProfile.button_h()
 	search.text_changed.connect(func(_t: String): _apply_filters())
 	filters.add_child(search)
-	var help := _label("Clique numa carta para adicionar 1 cópia. Botão direito remove 1. Passe o mouse para ler a carta.", 13)
+	var help := _label("Toque: +1 cópia · toque longo ou toque na lista: −1 · arraste para rolar" if c
+		else "Clique numa carta para adicionar 1 cópia. Botão direito remove 1. Passe o mouse para ler a carta.", 11 if c else 13)
 	help.modulate = Color(1, 1, 1, 0.6)
 	left.add_child(help)
 	scroll = ScrollContainer.new()
@@ -94,25 +102,31 @@ func _build() -> void:
 	# as colunas são calculadas a partir da largura disponível (_fit_columns)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	left.add_child(scroll)
+	# a grade fica centralizada na largura disponível
+	var grid_center := CenterContainer.new()
+	grid_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(grid_center)
 	grid = GridContainer.new()
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 8)
-	scroll.add_child(grid)
+	grid_center.add_child(grid)
 	scroll.resized.connect(_fit_columns)
 	for cid in pool:
 		var cell := VBoxContainer.new()
 		cell.add_theme_constant_override("separation", 0)
 		var view := CardView.new()
-		view.setup(cards[cid], display_game)
+		view.setup(cards[cid], display_game, face)
 		view.clicked.connect(func(_v: CardView): _add(cid))
-		view.right_clicked.connect(func(_v: CardView): _remove(cid))
+		view.right_clicked.connect(func(_v: CardView):
+			_show(cid)
+			_remove(cid))
 		view.hovered.connect(func(_v: CardView): _show(cid))
 		cell.add_child(view)
-		var cnt := _label("", 12)
+		var cnt := _label("", 10 if c else 12)
 		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		# o rótulo não pode alargar a célula além da carta (quebra as colunas)
 		cnt.clip_text = true
-		cnt.custom_minimum_size = Vector2(CardView.SIZE.x, 0)
+		cnt.custom_minimum_size = Vector2(face.x, 0)
 		cnt.add_theme_color_override("font_color", GOLD)
 		cell.add_child(cnt)
 		counts[cid] = cnt
@@ -121,37 +135,43 @@ func _build() -> void:
 
 	# ---- baralho
 	var right := VBoxContainer.new()
-	right.custom_minimum_size = Vector2(400, 0)
-	right.add_theme_constant_override("separation", 6)
+	right.custom_minimum_size = Vector2(290 if c else 400, 0)
+	right.add_theme_constant_override("separation", 4 if c else 6)
 	root.add_child(right)
-	right.add_child(_label("Baralho", 22))
+	if not c:
+		right.add_child(_label("Baralho", 22))
 	var load_row := HBoxContainer.new()
 	right.add_child(load_row)
 	load_opt = OptionButton.new()
 	load_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	load_opt.fit_to_longest_item = false
+	load_opt.clip_text = true
+	load_opt.custom_minimum_size.y = UiProfile.button_h()
 	load_row.add_child(load_opt)
 	_button("Abrir", load_row, func(): _load_deck(String(load_opt.get_selected_metadata())))
-	_button("Novo vazio", load_row, _new_empty)
+	_button("Novo" if c else "Novo vazio", load_row, _new_empty)
 	var name_row := HBoxContainer.new()
 	right.add_child(name_row)
-	name_row.add_child(_label("Nome:", 15))
+	name_row.add_child(_label("Nome:", UiProfile.fs(15)))
 	name_edit = LineEdit.new()
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_edit.custom_minimum_size.y = UiProfile.button_h()
 	name_edit.placeholder_text = "Nome do baralho"
 	name_row.add_child(name_edit)
 	stats = RichTextLabel.new()
 	stats.bbcode_enabled = true
 	stats.fit_content = true
 	stats.scroll_active = false
-	stats.add_theme_font_size_override("normal_font_size", 14)
-	stats.add_theme_font_size_override("bold_font_size", 14)
+	stats.add_theme_font_size_override("normal_font_size", 11 if c else 14)
+	stats.add_theme_font_size_override("bold_font_size", 11 if c else 14)
 	right.add_child(stats)
-	var list_help := _label("Clique numa linha para remover 1 cópia.", 12)
-	list_help.modulate = Color(1, 1, 1, 0.6)
-	right.add_child(list_help)
+	if not c:
+		var list_help := _label("Clique numa linha para remover 1 cópia.", 12)
+		list_help.modulate = Color(1, 1, 1, 0.6)
+		right.add_child(list_help)
 	deck_list = ItemList.new()
 	deck_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	deck_list.add_theme_font_size_override("font_size", 14)
+	deck_list.add_theme_font_size_override("font_size", 12 if c else 14)
 	deck_list.item_clicked.connect(_on_list_clicked)
 	right.add_child(deck_list)
 	var dpanel := PanelContainer.new()
@@ -163,23 +183,24 @@ func _build() -> void:
 	right.add_child(dpanel)
 	detail = RichTextLabel.new()
 	detail.bbcode_enabled = true
-	detail.custom_minimum_size = Vector2(0, 170)
-	detail.add_theme_font_size_override("normal_font_size", 13)
-	detail.add_theme_font_size_override("bold_font_size", 15)
+	detail.custom_minimum_size = Vector2(0, 56 if c else 170)
+	detail.add_theme_font_size_override("normal_font_size", 11 if c else 13)
+	detail.add_theme_font_size_override("bold_font_size", 12 if c else 15)
 	dpanel.add_child(detail)
-	status = _label("", 14)
+	status = _label("", 12 if c else 14)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(status)
 	var actions := HBoxContainer.new()
 	right.add_child(actions)
 	_button("Salvar", actions, _save)
-	_button("Excluir", actions, _delete)
-	_button("Voltar ao menu", actions, func(): back_requested.emit())
+	_button("Excluir", actions, func():
+		Modal.confirm(self, "Excluir o baralho \"%s\"?" % name_edit.text.strip_edges(), "Excluir", _delete))
+	_button("Voltar" if c else "Voltar ao menu", actions, func(): back_requested.emit())
 
 
 func _fit_columns() -> void:
 	var w := scroll.size.x - 16.0
-	grid.columns = maxi(1, int(w / (CardView.SIZE.x + 6)))
+	grid.columns = maxi(1, int(w / (cell_w + 6)))
 
 
 # ================================================================ filtros
@@ -280,18 +301,23 @@ func _refresh_stats() -> void:
 	var ok_units := units >= DeckStore.MIN_UNITS
 	var ok_size := ids.size() >= DeckStore.MIN_CARDS
 	var ok := ok_units and ok_size
-	var t := "[b][color=%s]%d cartas[/color][/b] (mín. %d)   ·   unidades: [color=%s]%d[/color] (mín. %d)   ·   instantâneas: %d\n" % [
+	var c := UiProfile.compact
+	var t := ("[b][color=%s]%d cartas[/color][/b] (mín. %d) · [color=%s]%d[/color] unid. (mín. %d) · %d inst.\n" if c
+		else "[b][color=%s]%d cartas[/color][/b] (mín. %d)   ·   unidades: [color=%s]%d[/color] (mín. %d)   ·   instantâneas: %d\n") % [
 		"#7dff9a" if ok_size else "#ff8a8a", ids.size(), DeckStore.MIN_CARDS,
 		"#7dff9a" if ok_units else "#ff8a8a", units, DeckStore.MIN_UNITS, ids.size() - units]
 	var suits := PackedStringArray()
 	for s in SUIT_ORDER:
 		suits.append("%s %d" % [Game.SUIT_SYMBOLS[s], int(per_suit.get(s, 0))])
-	t += "Naipes das unidades:  " + "   ".join(suits) + "\n"
+	t += ("Naipes:  " if c else "Naipes das unidades:  ") + "   ".join(suits)
+	if not c:
+		t += "\n"
 	var vals := PackedStringArray()
 	for v in range(2, 15):
 		if per_value.has(v):
 			vals.append("%s×%d" % [Game.value_label(v), int(per_value[v])])
-	t += "Valores:  " + ("  ".join(vals) if not vals.is_empty() else "-")
+	if not c:
+		t += "Valores:  " + ("  ".join(vals) if not vals.is_empty() else "-")
 	if not ok_size:
 		t += "\n[color=#ff8a8a]Faltam %d cartas para o baralho ser válido.[/color]" % (DeckStore.MIN_CARDS - ids.size())
 	if not ok_units:
@@ -379,6 +405,7 @@ func _label(text: String, font_size: int) -> Label:
 func _button(text: String, parent: Control, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
+	b.custom_minimum_size.y = UiProfile.button_h()
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.pressed.connect(cb)
 	parent.add_child(b)
@@ -387,6 +414,7 @@ func _button(text: String, parent: Control, cb: Callable) -> Button:
 
 func _option(items: Array, parent: Control) -> OptionButton:
 	var o := OptionButton.new()
+	o.custom_minimum_size.y = UiProfile.button_h()
 	for it in items:
 		o.add_item(it)
 	o.item_selected.connect(func(_i: int): _apply_filters())

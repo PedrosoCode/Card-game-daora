@@ -24,7 +24,8 @@ Para testar a versão web localmente: `python3 -m http.server 8060 --directory b
 Notas:
 - **Fontes embutidas** (`assets/fonts/`: Noto Sans + DejaVu Sans para ♠♥♦♣⚡❄◷). O navegador e o Android não têm as fontes do sistema. A licença está em `assets/fonts/LICENSE.txt`.
 - **Android**: paisagem, tela cheia. O botão "voltar" fecha a janela aberta, volta ao menu e, no menu, sai. Testado no emulador com `-gpu host`; com `swiftshader` (software) o shader 2D do Godot não compila.
-- **Celular**: o layout foi pensado para 1600×1000 e fica pequeno numa tela de celular. Em tablet é jogável. Um layout próprio para celular é o próximo passo.
+- **Celular**: layout próprio, escolhido sozinho pelo tamanho físico da tela (ou em **Opções > Layout**). Tela base 720×420, cartas compactas, botões grandes e um menu ☰ com o que é menos usado. Tablet usa o layout de computador.
+- **Tela cheia**: o desktop exportado abre em tela cheia. **F11** ou **Alt+Enter** alternam, e há a opção em **Opções** e no ☰ da partida. Na web, o menu tem o botão **Tela cheia**, porque o navegador exige um toque para isso. No celular em pé, a web pede para girar o aparelho.
 
 ## Rodar
 
@@ -33,7 +34,9 @@ Notas:
 
 **Montador de baralhos:** clique numa carta do acervo para adicionar uma cópia; botão direito remove. Filtre por tipo, naipe ou texto. As regras são **pelo menos 52 cartas e 25 unidades**; fora isso vale tudo (cópias, valores e naipes repetidos). Baralhos salvos ficam em `user://decks.json` (no Linux, `~/.local/share/godot/app_userdata/Cadeia de Comando/decks.json`) e aparecem no menu com ★.
 
-**Controles:** clique numa carta da mão e depois numa fileira sua (destacada em verde), ou em **Descartar**. Para atacar ou usar um ativo, clique na sua unidade e depois em **Atacar** ou **Usar efeito**, e escolha o alvo (borda vermelha). Instantâneas (⚡) com alvo pedem o alvo; sem alvo, clique duas vezes na carta para usar. **No Registro, clique no nome de uma carta** para inspecioná-la: carta ampliada, efeitos, onde está e o histórico dela (quem a atingiu, como morreu). Os botões **Meu cemitério / Cemitério inimigo / Meu baralho** mostram essas pilhas (o baralho sai ordenado, sem revelar a ordem de compra). Botão direito ou Esc cancela. O botão **Animação** alterna entre velocidade normal, rápida e desligada. **Ordenar cartas** organiza a mão e o tabuleiro por naipe, valor, HP ou na ordem das jogadas (só muda a exibição).
+**Controles no celular (toque):** toque numa carta da mão e depois numa fileira. **Toque longo** numa carta abre a inspeção. **Arraste** a mão ou as listas para rolar. A aba **Carta** do painel mostra o texto da última carta tocada, e a aba **Registro** mostra o registro. O **☰** reúne ordenar, animação, pilhas (cemitérios e baralho), nova partida, desistir e sair. Tudo que encerra a partida ou a rodada pede confirmação, inclusive **Passar**.
+
+**Controles no computador:** clique numa carta da mão e depois numa fileira sua (destacada em verde), ou em **Descartar**. Para atacar ou usar um ativo, clique na sua unidade e depois em **Atacar** ou **Usar efeito**, e escolha o alvo (borda vermelha). Instantâneas (⚡) com alvo pedem o alvo; sem alvo, clique duas vezes na carta para usar. **No Registro, clique no nome de uma carta** para inspecioná-la: carta ampliada, efeitos, onde está e o histórico dela (quem a atingiu, como morreu). Os botões **Meu cemitério / Cemitério inimigo / Meu baralho** mostram essas pilhas (o baralho sai ordenado, sem revelar a ordem de compra). Botão direito ou Esc cancela. No **☰ Menu** ficam a **Animação** (normal, rápida, desligada) e o **Ordenar cartas**, que organiza a mão e o tabuleiro por naipe, valor, HP ou na ordem das jogadas (só muda a exibição). As duas escolhas ficam salvas. **Nova partida**, **Desistir** e **Sair para o menu** também ficam lá, longe dos botões de jogo e com confirmação.
 
 ## Modo online
 
@@ -92,7 +95,9 @@ ui/
   app.gd / app.tscn   tela raiz (cena principal): menu inicial e troca de telas
   main.gd / main.tscn tela de jogo, montada em código, + fila de animação
   deck_builder.gd     montador de baralhos
-  card_view.gd        desenho de uma carta + CardView.describe (texto completo)
+  card_view.gd        desenho de uma carta (face completa ou compacta, toque/arrasto/toque longo) + CardView.describe
+  ui_profile.gd       perfil de tela (celular x computador), tema de toque, tela cheia e preferências
+  modal.gd            janela de confirmação simples
 tests/
   sim.gd              avaliador, baralho, temporizador + 150 partidas no padrão + 100 com baralhos da IA
   cards_test.gd       exercita cada uma das 170 cartas do acervo (jogar, ativar, atacar, passar, turnos)
@@ -103,6 +108,7 @@ tests/
   net_player.gd       jogador online automático usado pelos testes
   net_bot.gd          bot online em processo separado (role=host|guest)
   online_ui_smoke.gd  a tela joga online contra o net_bot (role=host: tela é o jogador 0; guest: jogador 1)
+  layout_smoke.gd     abre todas as telas e janelas e confere que cabem na tela (layout=compact|wide)
 ```
 
 A regra de ouro é que **a UI nunca altera estado**. Ela chama `game.play_card / discard / attack / activate / end_turn / pass_round` e redesenha quando recebe o sinal `changed`. Por isso a IA, os testes headless e o modo online usam exatamente o mesmo motor. A tela é desenhada do ponto de vista de `me` (0 ou 1): o seu lado fica sempre embaixo.

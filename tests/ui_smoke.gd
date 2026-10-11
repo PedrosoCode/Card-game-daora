@@ -1,7 +1,7 @@
 extends SceneTree
 ## Teste de fumaça da UI: joga uma partida inteira "clicando" pelo código,
 ## com as animações ligadas, e tira screenshots no meio delas.
-## xvfb-run godot --path . -s res://tests/ui_smoke.gd   (salva screenshots em user://)
+## godot --path . --disable-vsync -s res://tests/ui_smoke.gd   (salva screenshots em user://; layout=compact força o celular)
 ## Argumentos opcionais depois de "--": speed=0 (sem animação), speed=3 (padrão),
 ## sort=0..3 (ordem de exibição: padrão, naipe, valor, HP), decks=legiao,conspiracao (padrão)
 

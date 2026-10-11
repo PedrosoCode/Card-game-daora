@@ -4,7 +4,7 @@ extends SceneTree
 ##   role=host  a tela cria a sala; o bot entra    (tela = jogador 0)
 ##   role=guest o bot cria a sala; a tela entra    (tela = jogador 1, testa me = 1)
 ## Precisa do servidor:  php -S 127.0.0.1:8070 -t server
-## godot --path . -s res://tests/online_ui_smoke.gd -- role=guest
+## godot --path . --disable-vsync -s res://tests/online_ui_smoke.gd -- role=guest
 
 const URL := "http://127.0.0.1:8070/api.php"
 var app: Control
@@ -68,7 +68,7 @@ func _run() -> void:
 		await process_frame
 		if Time.get_ticks_msec() - last_dbg > 3000:
 			last_dbg = Time.get_ticks_msec()
-			print("DBG turno=%d atual=%d espera=%d pend=%s seq=%d out=%d in=%d anim=%s dec=%s" % [m.game.turn_num, m.game.current,
+			print("DBG fps=%d turno=%d atual=%d espera=%d pend=%s seq=%d out=%d in=%d anim=%s dec=%s" % [Engine.get_frames_per_second(), m.game.turn_num, m.game.current,
 				m.game.waiting_for(), m.game.pending.get("kind", "-"), m.net_seq, m.net_outbox.size(), m.net_inbox.size(),
 				m.anim_busy, m.decision_panel.visible])
 		if m.dialog.visible:

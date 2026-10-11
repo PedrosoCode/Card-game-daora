@@ -39,7 +39,10 @@ const TONE_COLORS := {
 	"control": Color("#c08aff"),
 }
 const GOLD := Color("#ffd27a")
-const SORT_NAMES := ["Padrão (ordem das jogadas)", "Naipe", "Valor", "HP"]
+const SORT_NAMES := ["Padrão", "Naipe", "Valor", "HP"]
+const SPEED_SHORT := ["1x", "2x", "Desligada"]
+## Nomes curtos das fileiras no celular (coluna de rótulo estreita).
+const ROW_SHORT := {"front": "Frente", "back": "Retag.", "command": "Cadeia"}
 const SUIT_ORDER := ["espadas", "copas", "ouros", "paus"]
 
 var game: Game
@@ -103,9 +106,11 @@ var btn_cancel: Button
 var btn_end: Button
 var btn_pass: Button
 var btn_discard: Button
-var btn_speed: Button
-var btn_new: Button
-var btn_resign: Button
+var menu_btn: Button
+var board_col: VBoxContainer          # coluna das fileiras (centro das janelas e faixas)
+var side_col: VBoxContainer           # painel lateral (compacto: largura recalculada)
+var tabs: TabContainer                # compacto: "Carta" | "Registro"
+var hand_scroll: ScrollContainer
 var end_again: Button
 var dialog: AcceptDialog
 # janela de decisão (escolha no cemitério / troca de mão)
@@ -114,6 +119,7 @@ var decision_panel: PanelContainer
 var decision_title: Label
 var decision_sub: Label
 var decision_cards: HFlowContainer
+var decision_scroll: ScrollContainer
 var decision_buttons: HBoxContainer
 var mulligan_new: Dictionary = {}   # uid -> true (cartas que entraram na troca de mão)
 var mulligan_sel: Dictionary = {}   # uid -> true (marcadas para a próxima troca)
@@ -126,6 +132,7 @@ var viewer_shade: ColorRect
 var viewer_panel: PanelContainer
 var viewer_title: Label
 var viewer_body: VBoxContainer
+var viewer_close: Button
 var btn_my_grave: Button
 var btn_op_grave: Button
 var btn_my_deck: Button
@@ -146,6 +153,7 @@ func _ready() -> void:
 # ================================================================ construção da UI
 
 func _build_ui() -> void:
+	UiProfile.setup(get_tree())
 	var bg := ColorRect.new()
 	bg.color = Color("#14161b")
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -155,140 +163,12 @@ func _build_ui() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 8)
+		margin.add_theme_constant_override("margin_" + side, 4 if UiProfile.compact else 8)
 	add_child(margin)
-
-	var root := HBoxContainer.new()
-	root.add_theme_constant_override("separation", 10)
-	margin.add_child(root)
-
-	# ---- coluna do tabuleiro
-	var board := VBoxContainer.new()
-	board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	board.add_theme_constant_override("separation", 3)
-	root.add_child(board)
-
-	enemy_info = _label(15)
-	board.add_child(enemy_info)
-	for r in ["command", "back", "front"]:
-		board.add_child(_make_row(1, r))
-
-	center_label = RichTextLabel.new()
-	center_label.bbcode_enabled = true
-	center_label.fit_content = true
-	center_label.scroll_active = false
-	center_label.custom_minimum_size = Vector2(0, 26)
-	center_label.add_theme_font_size_override("normal_font_size", 16)
-	center_label.add_theme_font_size_override("bold_font_size", 16)
-	board.add_child(center_label)
-
-	for r in ["front", "back", "command"]:
-		board.add_child(_make_row(0, r))
-
-	var hand_title := _label(13)
-	hand_title.text = "Sua mão"
-	hand_title.modulate = Color(1, 1, 1, 0.6)
-	board.add_child(hand_title)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, CardView.SIZE.y + 14)
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	board.add_child(scroll)
-	hand_box = HBoxContainer.new()
-	hand_box.add_theme_constant_override("separation", 6)
-	scroll.add_child(hand_box)
-	# o leque depende da largura real, que só existe depois do layout
-	scroll.resized.connect(_fit_hand)
-
-	my_info = _label(15)
-	board.add_child(my_info)
-
-	# ---- painel lateral
-	var side := VBoxContainer.new()
-	side.custom_minimum_size = Vector2(360, 0)
-	side.add_theme_constant_override("separation", 6)
-	root.add_child(side)
-
-	var title := _label(22)
-	title.text = "CADEIA DE COMANDO"
-	title.add_theme_color_override("font_color", GOLD)
-	side.add_child(title)
-
-	turn_label = _label(16)
-	side.add_child(turn_label)
-
-	hint_label = _label(13)
-	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint_label.add_theme_color_override("font_color", Color("#ffe08a"))
-	hint_label.custom_minimum_size = Vector2(0, 40)
-	side.add_child(hint_label)
-
-	var row1 := HBoxContainer.new()
-	side.add_child(row1)
-	btn_end = _button("Encerrar turno", row1, _on_end_turn)
-	btn_pass = _button("Passar a rodada", row1, _on_pass)
-
-	var row2 := HBoxContainer.new()
-	side.add_child(row2)
-	btn_attack = _button("Atacar", row2, _on_attack_pressed)
-	btn_active = _button("Usar efeito", row2, _on_active_pressed)
-	btn_discard = _button("Descartar", row2, _on_discard_pressed)
-	btn_cancel = _button("Cancelar", row2, _cancel)
-
-	detail = RichTextLabel.new()
-	detail.bbcode_enabled = true
-	detail.custom_minimum_size = Vector2(0, 230)
-	detail.add_theme_font_size_override("normal_font_size", 14)
-	detail.add_theme_font_size_override("bold_font_size", 16)
-	var detail_panel := PanelContainer.new()
-	var dsb := StyleBoxFlat.new()
-	dsb.bg_color = Color("#1d2129")
-	dsb.set_corner_radius_all(6)
-	dsb.set_content_margin_all(8)
-	detail_panel.add_theme_stylebox_override("panel", dsb)
-	detail_panel.add_child(detail)
-	side.add_child(detail_panel)
-
-	var view_row := HBoxContainer.new()
-	side.add_child(view_row)
-	btn_my_grave = _button("Meu cemitério", view_row, func(): _open_pile("Seu cemitério", game.players[me].graveyard, false))
-	btn_op_grave = _button("Cemitério inimigo", view_row, func(): _open_pile("Cemitério do oponente", game.players[_opp()].graveyard, false))
-	btn_my_deck = _button("Meu baralho", view_row, func(): _open_pile("Seu baralho (cartas ainda não compradas, em ordem de naipe e valor)", game.players[me].deck, true))
-
-	var log_title := _label(13)
-	log_title.text = "Registro (clique no nome de uma carta para inspecioná-la)"
-	log_title.modulate = Color(1, 1, 1, 0.6)
-	side.add_child(log_title)
-	log_box = RichTextLabel.new()
-	log_box.bbcode_enabled = true
-	log_box.scroll_following = true
-	# nomes de cartas no registro são links [url=uid]: clicar abre a inspeção
-	log_box.meta_clicked.connect(func(meta): _inspect_uid(int(str(meta))))
-	log_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log_box.add_theme_font_size_override("normal_font_size", 13)
-	log_box.add_theme_font_size_override("bold_font_size", 13)
-	side.add_child(log_box)
-
-	var sort_row := HBoxContainer.new()
-	side.add_child(sort_row)
-	var sort_lbl := _label(14)
-	sort_lbl.text = "Ordenar cartas:"
-	sort_row.add_child(sort_lbl)
-	var sort_opt := OptionButton.new()
-	sort_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for nm in SORT_NAMES:
-		sort_opt.add_item(nm)
-	sort_opt.item_selected.connect(func(i: int):
-		sort_mode = i
-		_refresh())
-	sort_row.add_child(sort_opt)
-
-	var row3 := HBoxContainer.new()
-	side.add_child(row3)
-	btn_speed = _button(SPEED_NAMES[0], row3, _on_speed_pressed)
-	btn_new = _button("Nova partida", row3, _new_game)
-	btn_resign = _button("Desistir", row3, _on_resign)
-	btn_resign.visible = false
-	_button("Menu", row3, func(): menu_requested.emit())
+	if UiProfile.compact:
+		_build_compact(margin)
+	else:
+		_build_wide(margin)
 
 	# camadas de animação por cima de tudo, sem bloquear cliques
 	cards_layer = _layer()
@@ -303,6 +183,284 @@ func _build_ui() -> void:
 	dialog.confirmed.connect(_on_dialog_closed)
 	dialog.canceled.connect(_on_dialog_closed)
 	add_child(dialog)
+	get_viewport().size_changed.connect(_on_viewport_resized)
+
+
+## Desktop e tablet (tela base 1600×1000): tabuleiro à esquerda, painel à direita.
+func _build_wide(margin: MarginContainer) -> void:
+	var root := HBoxContainer.new()
+	root.add_theme_constant_override("separation", 10)
+	margin.add_child(root)
+
+	# ---- coluna do tabuleiro
+	var board := VBoxContainer.new()
+	board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	board.add_theme_constant_override("separation", 3)
+	root.add_child(board)
+	board_col = board
+
+	enemy_info = _label(15)
+	board.add_child(enemy_info)
+	for r in ["command", "back", "front"]:
+		board.add_child(_make_row(1, r))
+
+	center_label = _center_label(16)
+	center_label.custom_minimum_size = Vector2(0, 26)
+	board.add_child(center_label)
+
+	for r in ["front", "back", "command"]:
+		board.add_child(_make_row(0, r))
+
+	var hand_title := _label(13)
+	hand_title.text = "Sua mão"
+	hand_title.modulate = Color(1, 1, 1, 0.6)
+	board.add_child(hand_title)
+	_build_hand(board)
+
+	my_info = _label(15)
+	board.add_child(my_info)
+
+	# ---- painel lateral
+	var side := VBoxContainer.new()
+	side.custom_minimum_size = Vector2(360, 0)
+	side.add_theme_constant_override("separation", 6)
+	root.add_child(side)
+
+	var head := HBoxContainer.new()
+	side.add_child(head)
+	var title := _label(22)
+	title.text = "CADEIA DE COMANDO"
+	title.add_theme_color_override("font_color", GOLD)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	menu_btn = _button("☰  Menu", head, _open_game_menu)
+	menu_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
+	menu_btn.custom_minimum_size = Vector2(110, 36)
+
+	turn_label = _label(16)
+	side.add_child(turn_label)
+
+	hint_label = _label(13)
+	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint_label.add_theme_color_override("font_color", Color("#ffe08a"))
+	hint_label.custom_minimum_size = Vector2(0, 40)
+	side.add_child(hint_label)
+
+	_build_action_buttons(side)
+
+	detail = _rich(14, 16)
+	detail.custom_minimum_size = Vector2(0, 230)
+	side.add_child(_detail_panel(detail))
+
+	var view_row := HBoxContainer.new()
+	side.add_child(view_row)
+	_build_pile_buttons(view_row)
+
+	var log_title := _label(13)
+	log_title.text = "Registro (clique no nome de uma carta para inspecioná-la)"
+	log_title.modulate = Color(1, 1, 1, 0.6)
+	side.add_child(log_title)
+	log_box = _make_log(13)
+	side.add_child(log_box)
+
+
+## Celular (tela base 720×420, cada pixel virtual ≈ 1 dp): as 6 fileiras e o
+## painel lado a lado, a mão inteira embaixo (rola arrastando). Informações e
+## comparação das mãos ficam no painel; o resto (pilhas, ordenar, animação,
+## tela cheia, nova partida, menu) fica no ☰.
+func _build_compact(margin: MarginContainer) -> void:
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 3)
+	margin.add_child(root)
+	var top := HBoxContainer.new()
+	top.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	top.add_theme_constant_override("separation", 4)
+	root.add_child(top)
+
+	board_col = VBoxContainer.new()
+	board_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	board_col.add_theme_constant_override("separation", 2)
+	top.add_child(board_col)
+	_apply_compact_metrics()
+	for r in ["command", "back", "front"]:
+		board_col.add_child(_make_row(1, r))
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 2)
+	board_col.add_child(gap)
+	for r in ["front", "back", "command"]:
+		board_col.add_child(_make_row(0, r))
+
+	side_col = VBoxContainer.new()
+	side_col.custom_minimum_size = Vector2(_compact_side_w(), 0)
+	side_col.add_theme_constant_override("separation", 3)
+	top.add_child(side_col)
+	var side := side_col
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 4)
+	side.add_child(head)
+	turn_label = _label(14)
+	turn_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	turn_label.clip_text = true
+	turn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(turn_label)
+	menu_btn = _button("☰", head, _open_game_menu)
+	menu_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
+	menu_btn.custom_minimum_size = Vector2(52, 36)
+	menu_btn.add_theme_font_size_override("font_size", 20)
+
+	enemy_info = _label(11)
+	enemy_info.clip_text = true
+	enemy_info.modulate = Color(1, 0.85, 0.85)
+	side.add_child(enemy_info)
+	my_info = _label(11)
+	my_info.clip_text = true
+	my_info.modulate = Color(0.85, 0.92, 1)
+	side.add_child(my_info)
+	center_label = _center_label(12)
+	side.add_child(center_label)
+
+	hint_label = _label(12)
+	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint_label.max_lines_visible = 3
+	hint_label.clip_text = true
+	hint_label.add_theme_color_override("font_color", Color("#ffe08a"))
+	hint_label.custom_minimum_size = Vector2(0, 46)
+	side.add_child(hint_label)
+
+	_build_action_buttons(side)
+
+	tabs = TabContainer.new()
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_child(tabs)
+	detail = _rich(12, 13)
+	detail.name = "Carta"
+	tabs.add_child(_detail_panel(detail))
+	tabs.set_tab_title(0, "Carta")
+	log_box = _make_log(11)
+	tabs.add_child(log_box)
+	tabs.set_tab_title(1, "Registro")
+
+	_build_hand(root)
+
+
+## Mão do jogador: no desktop vira leque; no celular o passo mínimo é de um
+## dedo e o resto rola (arrastando qualquer carta da mão).
+func _build_hand(parent: Control) -> void:
+	hand_scroll = ScrollContainer.new()
+	hand_scroll.custom_minimum_size = Vector2(0, CardView.HAND_SIZE.y + (8 if UiProfile.compact else 14))
+	hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	if UiProfile.compact:
+		hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	parent.add_child(hand_scroll)
+	hand_box = HBoxContainer.new()
+	hand_box.add_theme_constant_override("separation", 6)
+	hand_scroll.add_child(hand_box)
+	# o leque depende da largura real, que só existe depois do layout
+	hand_scroll.resized.connect(_fit_hand)
+
+
+func _build_action_buttons(side: VBoxContainer) -> void:
+	var c := UiProfile.compact
+	var row1 := HBoxContainer.new()
+	side.add_child(row1)
+	btn_end = _button("Encerrar turno", row1, _on_end_turn)
+	btn_pass = _button("Passar" if c else "Passar a rodada", row1, _ask_pass)
+	btn_end.custom_minimum_size.y = 38 if c else 40
+	btn_pass.custom_minimum_size.y = 38 if c else 40
+	# separa visualmente "passar" (decisão de rodada) de "encerrar o turno"
+	row1.add_theme_constant_override("separation", 10 if c else 14)
+
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 3 if c else 4)
+	side.add_child(row2)
+	btn_attack = _button("Atacar", row2, _on_attack_pressed)
+	btn_active = _button("Efeito" if c else "Usar efeito", row2, _on_active_pressed)
+	btn_discard = _button("Descartar", row2, _on_discard_pressed)
+	btn_cancel = _button("Cancelar", row2, _cancel)
+	for b: Button in [btn_attack, btn_active, btn_discard, btn_cancel]:
+		b.custom_minimum_size.y = 36 if c else 36
+		if c:
+			b.add_theme_font_size_override("font_size", 12)
+			b.clip_text = true
+
+
+func _build_pile_buttons(parent: Control) -> void:
+	btn_my_grave = _button("Meu cemitério", parent, func(): _open_pile("Seu cemitério", game.players[me].graveyard, false))
+	btn_op_grave = _button("Cemitério inimigo", parent, func(): _open_pile("Cemitério do oponente", game.players[_opp()].graveyard, false))
+	btn_my_deck = _button("Meu baralho", parent, func(): _open_pile("Seu baralho (cartas ainda não compradas, em ordem de naipe e valor)", game.players[me].deck, true))
+
+
+func _center_label(font_size: int) -> RichTextLabel:
+	var l := RichTextLabel.new()
+	l.bbcode_enabled = true
+	l.fit_content = true
+	l.scroll_active = false
+	l.add_theme_font_size_override("normal_font_size", font_size)
+	l.add_theme_font_size_override("bold_font_size", font_size)
+	return l
+
+
+func _rich(normal: int, bold: int) -> RichTextLabel:
+	var r := RichTextLabel.new()
+	r.bbcode_enabled = true
+	r.add_theme_font_size_override("normal_font_size", normal)
+	r.add_theme_font_size_override("bold_font_size", bold)
+	return r
+
+
+func _detail_panel(content: Control) -> PanelContainer:
+	var p := PanelContainer.new()
+	var dsb := StyleBoxFlat.new()
+	dsb.bg_color = Color("#1d2129")
+	dsb.set_corner_radius_all(6)
+	dsb.set_content_margin_all(6 if UiProfile.compact else 8)
+	p.add_theme_stylebox_override("panel", dsb)
+	p.add_child(content)
+	if UiProfile.compact:
+		p.name = "Carta"
+	return p
+
+
+func _make_log(font_size: int) -> RichTextLabel:
+	var lb := _rich(font_size, font_size)
+	lb.scroll_following = true
+	# nomes de cartas no registro são links [url=uid]: clicar abre a inspeção
+	lb.meta_clicked.connect(func(meta): _inspect_uid(int(str(meta))))
+	lb.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	lb.name = "Registro"
+	return lb
+
+
+## Compacto: largura do painel e das cartas a partir da largura da tela.
+func _compact_side_w() -> float:
+	return clampf(get_viewport_rect().size.x * 0.31, 240.0, 300.0)
+
+
+func _apply_compact_metrics() -> void:
+	var w := get_viewport_rect().size.x - 8.0 - 4.0 - _compact_side_w()
+	# fileira: 2+2 de margem, rótulo 54, separação 4, 5 cartas com 4 entre elas
+	CardView.set_board_width((w - 4.0 - 54.0 - 4.0 - 16.0) / 5.0)
+	if side_col != null:
+		side_col.custom_minimum_size.x = _compact_side_w()
+
+
+## Web no celular: a barra do navegador some/aparece e a tela muda de largura.
+func _on_viewport_resized() -> void:
+	if not UiProfile.compact or game == null:
+		return
+	var before := CardView.SIZE
+	_apply_compact_metrics()
+	if before != CardView.SIZE:
+		hand_scroll.custom_minimum_size.y = CardView.HAND_SIZE.y + 8
+		_refresh()
+
+
+## Centro do tabuleiro (janelas, faixas e instantâneas aparecem aqui).
+func _board_center() -> Vector2:
+	if UiProfile.compact or center_label == null:
+		return board_col.global_position + board_col.size * 0.5
+	return center_label.global_position + center_label.size * 0.5
 
 
 ## Painel fixo de fim de partida, por cima do tabuleiro (o tabuleiro final fica visível).
@@ -313,15 +471,15 @@ func _build_end_panel() -> void:
 	sb.set_corner_radius_all(12)
 	sb.set_border_width_all(3)
 	sb.border_color = GOLD
-	sb.set_content_margin_all(24)
+	sb.set_content_margin_all(14 if UiProfile.compact else 24)
 	end_panel.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 14)
+	v.add_theme_constant_override("separation", 8 if UiProfile.compact else 14)
 	end_panel.add_child(v)
-	end_title = _label(44)
+	end_title = _label(UiProfile.fs(44))
 	end_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(end_title)
-	end_body = _label(16)
+	end_body = _label(UiProfile.fs(16))
 	end_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(end_body)
 	var btns := HBoxContainer.new()
@@ -331,8 +489,8 @@ func _build_end_panel() -> void:
 	for spec in [["Jogar de novo", _new_game], ["Menu", func(): menu_requested.emit()]]:
 		var btn := Button.new()
 		btn.text = spec[0]
-		btn.add_theme_font_size_override("font_size", 20)
-		btn.custom_minimum_size = Vector2(200, 44)
+		btn.add_theme_font_size_override("font_size", UiProfile.fs(20))
+		btn.custom_minimum_size = Vector2(160, 42) if UiProfile.compact else Vector2(200, 44)
 		btn.pressed.connect(spec[1])
 		btns.add_child(btn)
 		if end_again == null:
@@ -357,33 +515,35 @@ func _build_decision() -> void:
 	sb.set_corner_radius_all(12)
 	sb.set_border_width_all(3)
 	sb.border_color = Color("#9ad8ff")
-	sb.set_content_margin_all(20)
+	sb.set_content_margin_all(10 if UiProfile.compact else 20)
 	decision_panel.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	v.add_theme_constant_override("separation", 6 if UiProfile.compact else 12)
 	decision_panel.add_child(v)
-	decision_title = _label(28)
+	decision_title = _label(UiProfile.fs(28))
 	decision_title.add_theme_color_override("font_color", Color("#9ad8ff"))
 	decision_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(decision_title)
-	decision_sub = _label(15)
+	decision_sub = _label(UiProfile.fs(15))
 	decision_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	decision_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	decision_sub.custom_minimum_size = Vector2(900, 0)
 	v.add_child(decision_sub)
 	decision_tools = HBoxContainer.new()
 	decision_tools.alignment = BoxContainer.ALIGNMENT_CENTER
 	decision_tools.add_theme_constant_override("separation", 10)
 	v.add_child(decision_tools)
+	# as cartas rolam (arrastando) quando não cabem na tela
+	decision_scroll = ScrollContainer.new()
+	decision_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(decision_scroll)
 	decision_cards = HFlowContainer.new()
 	decision_cards.alignment = FlowContainer.ALIGNMENT_CENTER
-	decision_cards.add_theme_constant_override("h_separation", 8)
-	decision_cards.add_theme_constant_override("v_separation", 8)
-	decision_cards.custom_minimum_size = Vector2(1000, 0)
-	v.add_child(decision_cards)
+	decision_cards.add_theme_constant_override("h_separation", 6 if UiProfile.compact else 8)
+	decision_cards.add_theme_constant_override("v_separation", 6 if UiProfile.compact else 8)
+	decision_scroll.add_child(decision_cards)
 	decision_buttons = HBoxContainer.new()
 	decision_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	decision_buttons.add_theme_constant_override("separation", 16)
+	decision_buttons.add_theme_constant_override("separation", 10 if UiProfile.compact else 16)
 	v.add_child(decision_buttons)
 	decision_panel.visible = false
 	add_child(decision_panel)
@@ -405,10 +565,15 @@ func _sync_decision() -> void:
 	_clear(decision_buttons)
 	_clear(decision_tools)
 	var pend: Dictionary = game.pending
+	var vp := get_viewport_rect().size
+	var cw := minf(1000.0, vp.x - (40.0 if UiProfile.compact else 80.0))
+	decision_sub.custom_minimum_size = Vector2(minf(900.0, cw), 0)
+	decision_cards.custom_minimum_size = Vector2(cw, 0)
 	if pend["kind"] == "choice":
 		_sync_choice(pend)
 	else:
 		_sync_mulligan()
+	_fit_decision_scroll(cw, vp)
 	decision_shade.visible = true
 	decision_panel.visible = true
 	await get_tree().process_frame
@@ -430,8 +595,8 @@ func _sync_choice(pend: Dictionary) -> void:
 		for r: String in pend["options"]:
 			var b := Button.new()
 			b.text = Game.ROW_NAMES[r]
-			b.custom_minimum_size = Vector2(220, 44)
-			b.add_theme_font_size_override("font_size", 18)
+			b.custom_minimum_size = Vector2(180, 42) if UiProfile.compact else Vector2(220, 44)
+			b.add_theme_font_size_override("font_size", UiProfile.fs(18))
 			b.pressed.connect(func(): _on_choice_picked(r))
 			decision_buttons.add_child(b)
 		_hint("Escolha em qual fileira a carta entra.")
@@ -453,10 +618,11 @@ func _sync_choice(pend: Dictionary) -> void:
 		who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		who.clip_text = true
 		who.custom_minimum_size = Vector2(CardView.SIZE.x, 0)
+		who.add_theme_font_size_override("font_size", 10 if UiProfile.compact else 11)
 		who.modulate = Color(1, 1, 1, 0.7)
 		cell.add_child(who)
 		decision_cards.add_child(cell)
-	_hint("Escolha uma das cartas da janela (passe o mouse para ler).")
+	_hint("Escolha uma das cartas da janela (%s)." % ("toque longo para ler" if UiProfile.compact else "passe o mouse para ler"))
 
 
 ## Troca de mão: marque uma ou mais cartas e confirme. As trocadas voltam ao
@@ -489,11 +655,12 @@ func _sync_mulligan() -> void:
 		_sync_decision())
 	decision_tools.add_child(val_opt)
 	var deck_btn := Button.new()
+	deck_btn.custom_minimum_size.y = UiProfile.button_h()
 	deck_btn.text = "Ver baralho (%d)" % game.players[me].deck.size()
 	deck_btn.pressed.connect(func(): _open_pile("Seu baralho (ordem de naipe e valor)", game.players[me].deck, true))
 	decision_tools.add_child(deck_btn)
 	var insp := CheckButton.new()
-	insp.text = "Inspecionar ao clicar"
+	insp.text = "Inspecionar" if UiProfile.compact else "Inspecionar ao clicar"
 	insp.button_pressed = inspect_mode
 	insp.toggled.connect(func(on: bool): inspect_mode = on)
 	decision_tools.add_child(insp)
@@ -514,7 +681,7 @@ func _sync_mulligan() -> void:
 		view.right_clicked.connect(func(_v: CardView): _inspect(c))
 		view.hovered.connect(func(vw: CardView): _show_detail(vw.card))
 		cell.add_child(view)
-		var tag := _label(11)
+		var tag := _label(10 if UiProfile.compact else 11)
 		if mulligan_sel.has(c.uid):
 			tag.text = "TROCAR"
 			tag.add_theme_color_override("font_color", Color("#ff8a8a"))
@@ -534,25 +701,26 @@ func _sync_mulligan() -> void:
 	var swap := Button.new()
 	swap.text = "Trocar %d marcada(s)" % n if n > 0 else "Marque cartas para trocar"
 	swap.disabled = n == 0 or left <= 0
-	swap.custom_minimum_size = Vector2(260, 44)
-	swap.add_theme_font_size_override("font_size", 18)
+	swap.custom_minimum_size = Vector2(200, 42) if UiProfile.compact else Vector2(260, 44)
+	swap.add_theme_font_size_override("font_size", UiProfile.fs(18))
 	swap.pressed.connect(_mulligan_confirm)
 	decision_buttons.add_child(swap)
 	if n > 0:
 		var clear := Button.new()
 		clear.text = "Desmarcar"
-		clear.custom_minimum_size = Vector2(160, 44)
+		clear.custom_minimum_size = Vector2(120, 42) if UiProfile.compact else Vector2(160, 44)
 		clear.pressed.connect(func():
 			mulligan_sel.clear()
 			_sync_decision())
 		decision_buttons.add_child(clear)
 	var done := Button.new()
 	done.text = "Concluir troca" if left > 0 else "Concluir (sem trocas restantes)"
-	done.custom_minimum_size = Vector2(240, 44)
-	done.add_theme_font_size_override("font_size", 18)
+	done.custom_minimum_size = Vector2(180, 42) if UiProfile.compact else Vector2(240, 44)
+	done.add_theme_font_size_override("font_size", UiProfile.fs(18))
 	done.pressed.connect(_mulligan_finish)
 	decision_buttons.add_child(done)
-	_hint("Troca de mão: marque cartas (restam %d trocas), confirme em Trocar e, no fim, em Concluir. Botão direito numa carta inspeciona." % left)
+	_hint("Troca de mão: marque cartas (restam %d trocas), confirme em Trocar e, no fim, em Concluir. %s numa carta inspeciona." % [
+		left, "Toque longo" if UiProfile.compact else "Botão direito"])
 
 
 func _mull_passes(c: Card) -> bool:
@@ -566,18 +734,36 @@ func _mull_passes(c: Card) -> bool:
 
 
 func _tool_label(text: String) -> Label:
-	var l := _label(14)
+	var l := _label(UiProfile.fs(14))
 	l.text = text
 	return l
+
+
+## Altura da área de cartas da janela: tudo, se couber; senão rola.
+func _fit_decision_scroll(w: float, vp: Vector2) -> void:
+	var n := decision_cards.get_child_count()
+	var sep := 6.0 if UiProfile.compact else 8.0
+	var cell := CardView.SIZE + Vector2(0, 16)
+	var cols := maxi(1, int((w + sep) / (cell.x + sep)))
+	var need := ceili(float(n) / cols) * (cell.y + sep)
+	var room := vp.y - (196.0 if UiProfile.compact else 330.0)
+	decision_scroll.custom_minimum_size = Vector2(w, clampf(need, cell.y, maxf(cell.y, room)))
 
 
 func _place_decision() -> void:
 	if decision_panel == null or not decision_panel.visible:
 		return
-	decision_panel.reset_size()
-	var c := center_label.global_position + center_label.size * 0.5
-	var pos := c - decision_panel.size * 0.5
-	decision_panel.position = Vector2(maxf(8.0, pos.x), maxf(8.0, pos.y))
+	_place_modal(decision_panel)
+
+
+## Centraliza uma janela no tabuleiro (desktop) ou na tela (celular), sem sair dela.
+func _place_modal(panel: Control) -> void:
+	panel.reset_size()
+	var vp := get_viewport_rect().size
+	var c := vp * 0.5 if UiProfile.compact else _board_center()
+	var pos := c - panel.size * 0.5
+	panel.position = Vector2(clampf(pos.x, 4.0, maxf(4.0, vp.x - panel.size.x - 4.0)),
+		clampf(pos.y, 4.0, maxf(4.0, vp.y - panel.size.y - 4.0)))
 
 
 func _hide_decision() -> void:
@@ -593,6 +779,13 @@ func _on_choice_picked(option) -> void:
 	if not game.resolve_choice(me, option):
 		_hint(game.last_error)
 	else:
+		_turn_hint()
+
+
+## Depois de uma jogada: troca a instrução antiga ("clique numa fileira...")
+## pela dica do momento. Com decisão pendente, a janela já cuida da dica.
+func _after_action_hint() -> void:
+	if game.waiting_for() < 0:
 		_turn_hint()
 
 
@@ -667,37 +860,38 @@ func _build_viewer() -> void:
 	sb.set_corner_radius_all(12)
 	sb.set_border_width_all(3)
 	sb.border_color = GOLD
-	sb.set_content_margin_all(18)
+	sb.set_content_margin_all(12 if UiProfile.compact else 18)
 	viewer_panel.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", 8 if UiProfile.compact else 10)
 	viewer_panel.add_child(v)
-	viewer_title = _label(24)
+	viewer_title = _label(UiProfile.fs(24))
 	viewer_title.add_theme_color_override("font_color", GOLD)
 	viewer_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(viewer_title)
 	viewer_body = VBoxContainer.new()
 	viewer_body.add_theme_constant_override("separation", 10)
 	v.add_child(viewer_body)
-	var close := Button.new()
-	close.text = "Fechar"
-	close.custom_minimum_size = Vector2(200, 40)
-	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	close.pressed.connect(_close_viewer)
-	v.add_child(close)
+	viewer_close = Button.new()
+	viewer_close.text = "Fechar"
+	viewer_close.custom_minimum_size = Vector2(200, 40)
+	viewer_close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	viewer_close.pressed.connect(_close_viewer)
+	v.add_child(viewer_close)
 	viewer_panel.visible = false
 	add_child(viewer_panel)
 
 
-func _show_viewer(title: String) -> void:
+func _show_viewer(title: String, show_close := true) -> void:
 	viewer_title.text = title
+	viewer_close.visible = show_close
 	viewer_shade.visible = true
 	viewer_panel.visible = true
-	await get_tree().process_frame
 	viewer_panel.reset_size()
-	var c := center_label.global_position + center_label.size * 0.5
-	var pos := c - viewer_panel.size * 0.5
-	viewer_panel.position = Vector2(maxf(8.0, pos.x), maxf(8.0, pos.y))
+	_place_modal(viewer_panel)
+	await get_tree().process_frame
+	if viewer_panel.visible:
+		_place_modal(viewer_panel)
 
 
 func _close_viewer() -> void:
@@ -706,6 +900,135 @@ func _close_viewer() -> void:
 	viewer_shade.visible = false
 	viewer_panel.visible = false
 	_clear(viewer_body)
+
+
+## Menu da partida (☰). Fica longe dos botões de jogo e tudo que encerra a
+## partida pede confirmação (antes "Nova partida" ficava logo abaixo de
+## "Ordenar cartas" e era fácil de tocar sem querer).
+func _open_game_menu() -> void:
+	if game == null:
+		return
+	_clear(viewer_body)
+	var c := UiProfile.compact
+	viewer_body.add_child(_segmented("Ordenar cartas", SORT_NAMES, sort_mode, func(i: int): _set_sort(i)))
+	viewer_body.add_child(_segmented("Animação", SPEED_SHORT, maxi(0, SPEEDS.find(anim_speed)), func(i: int): _set_speed(i)))
+	if UiProfile.can_toggle_fullscreen():
+		var fs_row := HBoxContainer.new()
+		var fs_lbl := _label(UiProfile.fs(15))
+		fs_lbl.text = "Tela cheia"
+		fs_lbl.custom_minimum_size.x = 120 if c else 160
+		fs_row.add_child(fs_lbl)
+		var fs := CheckButton.new()
+		fs.button_pressed = UiProfile.is_fullscreen()
+		fs.text = "F11" if not OS.has_feature("web") else ""
+		fs.toggled.connect(func(on: bool): UiProfile.set_fullscreen(on))
+		fs_row.add_child(fs)
+		viewer_body.add_child(fs_row)
+	if c:
+		# no celular as pilhas ficam aqui (no desktop estão no painel lateral)
+		var piles := HBoxContainer.new()
+		piles.add_theme_constant_override("separation", 6)
+		viewer_body.add_child(piles)
+		_build_pile_buttons(piles)
+		_update_pile_buttons()
+	viewer_body.add_child(HSeparator.new())
+	var danger := HBoxContainer.new()
+	danger.alignment = BoxContainer.ALIGNMENT_CENTER
+	danger.add_theme_constant_override("separation", 12)
+	viewer_body.add_child(danger)
+	if online == null:
+		var nb := _button("Nova partida", danger, func(): _confirm(
+			"Começar uma nova partida?\nA partida atual será perdida.", "Nova partida", _new_game))
+		nb.disabled = false
+	else:
+		var rb := _button("Desistir", danger, func(): _confirm(
+			"Desistir da partida?\nO oponente vence.", "Desistir", _on_resign))
+		rb.disabled = net_failed or game.over or not _my_action_time()
+		if rb.disabled and not game.over:
+			rb.tooltip_text = "Só dá para desistir na sua vez."
+	_button("Sair para o menu", danger, _ask_leave)
+	for b in danger.get_children():
+		(b as Button).add_theme_color_override("font_color", Color("#ffb0a0"))
+	_show_viewer("Menu da partida")
+
+
+func _ask_leave() -> void:
+	if game.over:
+		menu_requested.emit()
+		return
+	var why := "A partida fica guardada no servidor: dá para voltar em Jogar online > Continuar partida." if online != null \
+		else "A partida atual será perdida."
+	_confirm("Sair para o menu?\n" + why, "Sair", func(): menu_requested.emit())
+
+
+## Pergunta de confirmação com botões grandes: "Voltar" à esquerda e a ação à direita.
+func _confirm(question: String, ok_text: String, action: Callable) -> void:
+	_clear(viewer_body)
+	var l := _label(UiProfile.fs(16))
+	l.text = question
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.custom_minimum_size = Vector2(minf(460.0, get_viewport_rect().size.x - 80.0), 0)
+	viewer_body.add_child(l)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 24)
+	viewer_body.add_child(row)
+	for spec in [["Voltar", _close_viewer], [ok_text, func():
+			_close_viewer()
+			action.call()]]:
+		var b := Button.new()
+		b.text = spec[0]
+		b.custom_minimum_size = Vector2(150, 44)
+		b.add_theme_font_size_override("font_size", UiProfile.fs(18))
+		b.pressed.connect(spec[1])
+		row.add_child(b)
+	_show_viewer("Confirmar", false)
+
+
+## Fileira de botões de escolha única (no lugar de menus suspensos: melhores no toque).
+func _segmented(title: String, names: Array, current: int, cb: Callable) -> Control:
+	var c := UiProfile.compact
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var l := _label(UiProfile.fs(15))
+	l.text = title
+	l.custom_minimum_size.x = 120 if c else 160
+	row.add_child(l)
+	var group := ButtonGroup.new()
+	for i in names.size():
+		var b := Button.new()
+		b.text = names[i]
+		b.toggle_mode = true
+		b.button_group = group
+		b.button_pressed = i == current
+		b.custom_minimum_size = Vector2(76 if c else 110, 40)
+		b.add_theme_stylebox_override("pressed", _selected_style())
+		b.add_theme_color_override("font_pressed_color", GOLD)
+		b.pressed.connect(cb.bind(i))
+		row.add_child(b)
+	return row
+
+
+func _selected_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#2a2f3a")
+	sb.set_border_width_all(2)
+	sb.border_color = GOLD
+	sb.set_corner_radius_all(4)
+	sb.set_content_margin_all(4)
+	return sb
+
+
+func _update_pile_buttons() -> void:
+	if game == null:
+		return
+	if is_instance_valid(btn_my_grave):
+		btn_my_grave.text = ("Meu cemitério (%d)" if not UiProfile.compact else "Meu cem. (%d)") % game.players[me].graveyard.size()
+	if is_instance_valid(btn_op_grave):
+		btn_op_grave.text = ("Cemitério inimigo (%d)" if not UiProfile.compact else "Cem. inimigo (%d)") % game.players[_opp()].graveyard.size()
+	if is_instance_valid(btn_my_deck):
+		btn_my_deck.text = "Meu baralho (%d)" % game.players[me].deck.size()
 
 
 ## Mostra uma pilha de cartas (cemitério, baralho). O baralho sai ordenado
@@ -719,16 +1042,20 @@ func _open_pile(title: String, cards: Array, hide_order: bool) -> void:
 		list = _sorted(list)
 		sort_mode = keep
 	if list.is_empty():
-		var empty := _label(16)
+		var empty := _label(UiProfile.fs(16))
 		empty.text = "(nenhuma carta)"
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		viewer_body.add_child(empty)
 	else:
+		var vp := get_viewport_rect().size
+		var w := minf(1040.0, vp.x - (40.0 if UiProfile.compact else 80.0))
+		var cols := maxi(1, int((w - 14.0) / (CardView.SIZE.x + 6.0)))
+		var max_rows := maxi(1, int((vp.y - (130.0 if UiProfile.compact else 200.0)) / (CardView.SIZE.y + 8.0)))
 		var scroll := ScrollContainer.new()
-		scroll.custom_minimum_size = Vector2(1040, mini(3, ceili(list.size() / 10.0)) * (CardView.SIZE.y + 8) + 8)
+		scroll.custom_minimum_size = Vector2(w, mini(max_rows, ceili(float(list.size()) / cols)) * (CardView.SIZE.y + 8) + 8)
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		var flow := HFlowContainer.new()
-		flow.custom_minimum_size = Vector2(1020, 0)
+		flow.custom_minimum_size = Vector2(w - 20.0, 0)
 		flow.add_theme_constant_override("h_separation", 6)
 		flow.add_theme_constant_override("v_separation", 8)
 		scroll.add_child(flow)
@@ -737,6 +1064,7 @@ func _open_pile(title: String, cards: Array, hide_order: bool) -> void:
 			view.setup(c, game)
 			view.hovered.connect(func(vw: CardView): _show_detail(vw.card))
 			view.clicked.connect(func(vw: CardView): _inspect(vw.card))
+			view.right_clicked.connect(func(vw: CardView): _inspect(vw.card))
 			flow.add_child(view)
 		viewer_body.add_child(scroll)
 	_show_viewer("%s  ·  %d carta(s)" % [title, list.size()])
@@ -756,31 +1084,33 @@ func _inspect(c: Card) -> void:
 	top.add_theme_constant_override("separation", 18)
 	viewer_body.add_child(top)
 	# CardView ampliada dentro de um Control simples (containers zeram a escala)
+	var zoom := 1.3 if UiProfile.compact else 2.0
+	var vp := get_viewport_rect().size
 	var holder := Control.new()
-	holder.custom_minimum_size = CardView.SIZE * 2.0
+	holder.custom_minimum_size = CardView.FULL_SIZE * zoom
 	var view := CardView.new()
-	view.setup(c, game)
-	view.scale = Vector2(2, 2)
+	view.setup(c, game, CardView.FULL_SIZE)
+	view.scale = Vector2(zoom, zoom)
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(view)
 	top.add_child(holder)
 	var info := RichTextLabel.new()
 	info.bbcode_enabled = true
-	info.custom_minimum_size = Vector2(560, CardView.SIZE.y * 2.0)
-	info.add_theme_font_size_override("normal_font_size", 15)
-	info.add_theme_font_size_override("bold_font_size", 18)
+	info.custom_minimum_size = Vector2(minf(560.0, vp.x - CardView.FULL_SIZE.x * zoom - 90.0), CardView.FULL_SIZE.y * zoom)
+	info.add_theme_font_size_override("normal_font_size", UiProfile.fs(15))
+	info.add_theme_font_size_override("bold_font_size", UiProfile.fs(18))
 	info.text = CardView.describe(c, game) + "\n\n[color=#9aa4b8]Onde está agora: %s[/color]" % game.locate(c, me)
 	top.add_child(info)
-	var hist_title := _label(16)
+	var hist_title := _label(UiProfile.fs(16))
 	hist_title.text = "Histórico desta carta no registro"
 	hist_title.add_theme_color_override("font_color", GOLD)
 	viewer_body.add_child(hist_title)
 	var hist := RichTextLabel.new()
 	hist.bbcode_enabled = true
-	hist.custom_minimum_size = Vector2(800, 200)
+	hist.custom_minimum_size = Vector2(minf(800.0, vp.x - 60.0), 76.0 if UiProfile.compact else 200.0)
 	hist.scroll_following = true
-	hist.add_theme_font_size_override("normal_font_size", 14)
-	hist.add_theme_font_size_override("bold_font_size", 14)
+	hist.add_theme_font_size_override("normal_font_size", UiProfile.fs(14))
+	hist.add_theme_font_size_override("bold_font_size", UiProfile.fs(14))
 	hist.meta_clicked.connect(func(meta): _inspect_uid(int(str(meta))))
 	var tag := "[url=%d]" % c.uid
 	var mine := []
@@ -823,7 +1153,7 @@ func _show_end_panel(info: Dictionary) -> void:
 		lines.append("Rodada %d interrompida pela desistência." % int(info["round"]))
 	end_body.text = "\n".join(lines)
 	end_panel.visible = true
-	_hint("Partida encerrada. Clique em Jogar de novo (ou Nova partida) para recomeçar.")
+	_hint("Partida encerrada: Jogar de novo ou Menu.")
 	turn_label.text = "Fim de jogo - " + ("empate" if mw < 0 else ("você venceu" if mw == me else "você perdeu"))
 	await get_tree().process_frame
 	_place_end_panel()
@@ -832,9 +1162,7 @@ func _show_end_panel(info: Dictionary) -> void:
 func _place_end_panel() -> void:
 	if end_panel == null or not end_panel.visible:
 		return
-	end_panel.reset_size()
-	var c := center_label.global_position + center_label.size * 0.5
-	end_panel.position = c - end_panel.size * 0.5
+	_place_modal(end_panel)
 
 
 func _opp() -> int:
@@ -854,9 +1182,10 @@ func _layer() -> Control:
 
 
 func _make_row(pid: int, r: String) -> Control:
+	var c := UiProfile.compact
 	var key := "%d_%s" % [pid, r]
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(0, CardView.SIZE.y + 8)
+	panel.custom_minimum_size = Vector2(0, CardView.SIZE.y + (4 if c else 8))
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("#1c2230") if pid == 0 else Color("#261c22")
 	if r == "command":
@@ -864,23 +1193,26 @@ func _make_row(pid: int, r: String) -> Control:
 	sb.set_corner_radius_all(6)
 	sb.set_border_width_all(2)
 	sb.border_color = Color("#2b303a")
-	sb.set_content_margin_all(4)
+	sb.set_content_margin_all(2 if c else 4)
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.gui_input.connect(_on_row_input.bind(pid, r))
 
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_theme_constant_override("separation", 8)
+	h.add_theme_constant_override("separation", 4 if c else 8)
 	panel.add_child(h)
-	var lbl := _label(13)
-	lbl.custom_minimum_size = Vector2(150, 0)
+	var lbl := _label(10 if c else 13)
+	lbl.custom_minimum_size = Vector2(54 if c else 150, 0)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if c:
+		lbl.max_lines_visible = 4
+		lbl.clip_text = true
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_vertical = Control.SIZE_FILL
 	h.add_child(lbl)
 	var cards := HBoxContainer.new()
 	cards.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cards.add_theme_constant_override("separation", 6)
+	cards.add_theme_constant_override("separation", 4 if c else 6)
 	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cards.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_child(cards)
@@ -900,6 +1232,7 @@ func _label(font_size: int) -> Label:
 func _button(text: String, parent: Control, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
+	b.custom_minimum_size.y = UiProfile.button_h()
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.pressed.connect(cb)
 	parent.add_child(b)
@@ -935,8 +1268,6 @@ func _new_game() -> void:
 	selected = null
 	valid = []
 	cast_confirm = null
-	btn_new.visible = online == null
-	btn_resign.visible = online != null
 	end_again.visible = online == null
 	if online != null:
 		ai = null
@@ -992,27 +1323,34 @@ func _redraw() -> void:
 			var key := "%d_%s" % [_side(pid), r]
 			for c: Card in _sorted(p.rows[r]):
 				row_boxes[key].add_child(_make_card_view(c))
-			var txt: String = Game.ROW_NAMES[r]
+			var txt: String = ROW_SHORT[r] if UiProfile.compact else Game.ROW_NAMES[r]
 			if r == "command":
-				txt += "\n[%s]" % game.hand_name(pid)
+				txt += ("\n%s" if UiProfile.compact else "\n[%s]") % game.hand_name(pid)
 				if p.passed:
 					txt += "\nSELADA" if Game.PASS_SEALS_COMMAND else "\nPASSOU"
 			row_labels[key].text = txt
 			var hot := pid == me and place_rows.has(r)
 			_set_row_border(key, Color("#5cff8a") if hot else Color("#2b303a"))
 	for c: Card in _sorted(game.players[me].hand):
-		hand_box.add_child(_make_card_view(c))
+		hand_box.add_child(_make_card_view(c, true))
 	_fit_hand()
 
 	var mp := game.players[me]
 	var op := game.players[_opp()]
-	enemy_info.text = "OPONENTE  |  Vidas %d/%d  |  Mão %d  |  Baralho %d  |  Cemitério %d%s" % [
-		op.gems, Game.START_GEMS, op.hand.size(), op.deck.size(), op.graveyard.size(), "  |  PASSOU" if op.passed else ""]
-	my_info.text = "VOCÊ  |  Vidas %d/%d  |  Mão %d  |  Baralho %d  |  Cemitério %d%s" % [
-		mp.gems, Game.START_GEMS, mp.hand.size(), mp.deck.size(), mp.graveyard.size(), "  |  PASSOU" if mp.passed else ""]
 	var cmp := HandEvaluator.compare(game.hand_key(me), game.hand_key(_opp()))
 	var status := "[color=#7dff9a]você está na frente[/color]" if cmp > 0 else ("[color=#ff8a8a]você está atrás[/color]" if cmp < 0 else "empate")
-	center_label.text = "[center][b]Sua mão:[/b] %s     [b]Oponente:[/b] %s     (%s)[/center]" % [game.hand_name(me), game.hand_name(_opp()), status]
+	if UiProfile.compact:
+		enemy_info.text = "Oponente: %d vidas · mão %d · baralho %d · cem. %d%s" % [
+			op.gems, op.hand.size(), op.deck.size(), op.graveyard.size(), " · PASSOU" if op.passed else ""]
+		my_info.text = "Você: %d vidas · mão %d · baralho %d · cem. %d%s" % [
+			mp.gems, mp.hand.size(), mp.deck.size(), mp.graveyard.size(), " · PASSOU" if mp.passed else ""]
+		center_label.text = "[b]Você:[/b] %s  x  [b]Op.:[/b] %s  (%s)" % [game.hand_name(me), game.hand_name(_opp()), status]
+	else:
+		enemy_info.text = "OPONENTE  |  Vidas %d/%d  |  Mão %d  |  Baralho %d  |  Cemitério %d%s" % [
+			op.gems, Game.START_GEMS, op.hand.size(), op.deck.size(), op.graveyard.size(), "  |  PASSOU" if op.passed else ""]
+		my_info.text = "VOCÊ  |  Vidas %d/%d  |  Mão %d  |  Baralho %d  |  Cemitério %d%s" % [
+			mp.gems, Game.START_GEMS, mp.hand.size(), mp.deck.size(), mp.graveyard.size(), "  |  PASSOU" if mp.passed else ""]
+		center_label.text = "[center][b]Sua mão:[/b] %s     [b]Oponente:[/b] %s     (%s)[/center]" % [game.hand_name(me), game.hand_name(_opp()), status]
 
 	if game.over:
 		var mw := game.winner
@@ -1021,7 +1359,7 @@ func _redraw() -> void:
 		var who := "Seu turno" if game.current == me else "Turno do oponente"
 		if game.pending.get("kind", "") == "mulligan":
 			who = "Troca de mão" if game.waiting_for() == me else "Troca de mão do oponente"
-		turn_label.text = "Rodada %d  -  %s" % [game.round_num, who]
+		turn_label.text = ("Rodada %d · %s" if UiProfile.compact else "Rodada %d  -  %s") % [game.round_num, who]
 
 	var my_turn := game.is_turn(me)
 	btn_end.disabled = not game.can_end_turn(me)
@@ -1030,11 +1368,7 @@ func _redraw() -> void:
 	btn_active.disabled = not (selected != null and game.can_activate(selected))
 	btn_discard.disabled = not (selected != null and selected.owner == me and game.can_discard(selected))
 	btn_cancel.disabled = mode == "idle" and selected == null
-	btn_resign.disabled = online == null or net_failed or game.over or not _my_action_time()
-
-	btn_my_grave.text = "Meu cemitério (%d)" % mp.graveyard.size()
-	btn_op_grave.text = "Cemitério inimigo (%d)" % op.graveyard.size()
-	btn_my_deck.text = "Meu baralho (%d)" % mp.deck.size()
+	_update_pile_buttons()
 	_sync_decision()
 	if _ai_should_act():
 		_run_ai.call_deferred()
@@ -1067,19 +1401,26 @@ func _suit_rank(c: Card) -> int:
 
 
 ## Com muitas cartas, a mão se sobrepõe (como um leque) para caber sem rolagem.
+## No celular o passo mínimo entre cartas é de um dedo (44 px); o que não cabe
+## rola arrastando a mão.
 func _fit_hand() -> void:
 	var n := hand_box.get_child_count()
-	var width: float = hand_box.get_parent().size.x - 16.0
-	var sep := 6
-	if width > CardView.SIZE.x and n > 1 and n * (CardView.SIZE.x + 6) > width:
-		sep = int(floor((width - CardView.SIZE.x) / (n - 1) - CardView.SIZE.x))
+	var cw := CardView.HAND_SIZE.x
+	var width: float = hand_scroll.size.x - (4.0 if UiProfile.compact else 16.0)
+	var sep := 4 if UiProfile.compact else 6
+	if width > cw and n > 1 and n * (cw + sep) > width:
+		sep = int(floor((width - cw) / (n - 1) - cw))
+		if UiProfile.compact:
+			sep = maxi(sep, int(44.0 - cw))
 	hand_box.add_theme_constant_override("separation", sep)
 
 
-func _make_card_view(c: Card) -> CardView:
+func _make_card_view(c: Card, in_hand := false) -> CardView:
 	var v := CardView.new()
-	v.setup(c, game)
+	v.setup(c, game, CardView.HAND_SIZE if in_hand else Vector2.ZERO)
 	v.clicked.connect(_on_card_clicked)
+	# toque longo (celular) ou botão direito abre a inspeção completa
+	v.right_clicked.connect(func(view: CardView): _inspect(view.card))
 	v.hovered.connect(func(view: CardView): _show_detail(view.card))
 	if c == selected:
 		v.set_state("selected")
@@ -1113,6 +1454,8 @@ func _set_row_border(key: String, color: Color) -> void:
 func _on_card_clicked(view: CardView) -> void:
 	var c := view.card
 	_show_detail(c)
+	if tabs != null:
+		tabs.current_tab = 0
 	if game.over or anim_busy:
 		return
 	if mode in ["target_play", "target_effect", "attack", "activate"] and valid.has(c):
@@ -1188,9 +1531,12 @@ func _on_row_input(event: InputEvent, pid: int, r: String) -> void:
 		_hint("Escolha o alvo do efeito de entrada.")
 		_refresh()
 		return
-	if not game.play_card(me, selected, r):
-		_hint(game.last_error)
+	var ok := game.play_card(me, selected, r)
 	_cancel()
+	if not ok:
+		_hint(game.last_error)
+	else:
+		_after_action_hint()
 
 
 ## Explica por que uma unidade sua não pode atacar nem usar efeito agora.
@@ -1224,9 +1570,11 @@ func _execute_target(t: Card) -> void:
 			ok = game.attack(me, selected, t)
 		"activate":
 			ok = game.activate(me, selected, t)
+	_cancel()
 	if not ok:
 		_hint(game.last_error)
-	_cancel()
+	else:
+		_after_action_hint()
 
 
 func _on_attack_pressed() -> void:
@@ -1283,10 +1631,23 @@ func _on_pass() -> void:
 	game.pass_round(me)
 
 
-func _on_speed_pressed() -> void:
-	var i := (SPEEDS.find(anim_speed) + 1) % SPEEDS.size()
+func _set_speed(i: int) -> void:
 	anim_speed = SPEEDS[i]
-	btn_speed.text = SPEED_NAMES[i]
+	UiProfile.set_pref("anim_speed", i)
+
+
+func _set_sort(i: int) -> void:
+	sort_mode = i
+	UiProfile.set_pref("sort", i)
+	_refresh()
+
+
+## Passar a rodada pede confirmação (no toque ele fica ao lado de Encerrar turno).
+func _ask_pass() -> void:
+	if anim_busy or not game.is_turn(me):
+		return
+	_confirm("Passar a rodada?\nVocê não baixa mais cartas nesta rodada. O oponente continua jogando e ainda pode atacar e usar efeitos nas suas cartas.",
+		"Passar a rodada", _on_pass)
 
 
 func _cancel() -> void:
@@ -1321,6 +1682,9 @@ func _input(event: InputEvent) -> void:
 
 
 func _hint(t: String) -> void:
+	if UiProfile.compact:
+		# no celular não existe clique nem mouse
+		t = t.replace("Clique", "Toque").replace("clique", "toque")
 	hint_label.text = t
 
 
@@ -1481,7 +1845,7 @@ func go_back() -> void:
 	elif selected != null or mode != "idle":
 		_cancel()
 	elif not decision_panel.visible:
-		menu_requested.emit()
+		_open_game_menu()
 
 
 ## Chamado pela App antes de trocar de tela: interrompe animações e a IA.
@@ -1720,7 +2084,7 @@ func _anim_cast(ev: Dictionary) -> void:
 		start = _hand_pos(pid) - CardView.SIZE * 0.5
 	nv.position = _to_layer(start, cards_layer)
 	views[c.uid] = nv
-	var dest := center_label.global_position + center_label.size * 0.5 - CardView.SIZE * 0.5
+	var dest := _board_center() - CardView.SIZE * 0.5
 	var tw := create_tween().set_parallel()
 	tw.tween_property(nv, "position", _to_layer(dest, cards_layer), _dur(0.35)) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -1730,7 +2094,7 @@ func _anim_cast(ev: Dictionary) -> void:
 		return
 	_flash(nv, Color(1, 0.9, 0.5))
 	var who := "Você usa" if pid == me else "O oponente usa"
-	_float_text(nv.center() - Vector2(0, 90), "%s ⚡ %s" % [who, c.name], GOLD, 22)
+	_float_text(nv.center() - Vector2(0, CardView.SIZE.y * 0.8), "%s ⚡ %s" % [who, c.name], GOLD, 22)
 	# a do oponente fica mais tempo à vista para dar tempo de ler
 	await _wait(0.35 if pid == me else 1.1)
 
@@ -2018,11 +2382,17 @@ func _slot_pos(key: String) -> Vector2:
 ## De onde saem as cartas da mão (a do oponente fica escondida no topo).
 func _hand_pos(pid: int) -> Vector2:
 	if pid == me:
-		return hand_box.get_parent().global_position + Vector2(200, CardView.SIZE.y * 0.5)
+		return hand_scroll.global_position + Vector2(200, CardView.SIZE.y * 0.5)
+	if UiProfile.compact:
+		return board_col.global_position + Vector2(board_col.size.x * 0.5, -10)
 	return enemy_info.global_position + Vector2(300, enemy_info.size.y * 0.5)
 
 
 func _info_pos(pid: int) -> Vector2:
+	if UiProfile.compact:
+		if pid == me:
+			return hand_scroll.global_position + Vector2(hand_scroll.size.x * 0.4, -6)
+		return board_col.global_position + Vector2(board_col.size.x * 0.5, 14)
 	var l := my_info if pid == me else enemy_info
 	return l.global_position + Vector2(260, l.size.y * 0.5)
 
@@ -2079,15 +2449,15 @@ func _float_text(pos: Vector2, text: String, color: Color, font_size: int = 24) 
 	var l := Label.new()
 	l.text = text
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_font_size_override("font_size", UiProfile.fs(font_size))
 	l.add_theme_color_override("font_color", color)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("outline_size", 7)
+	l.add_theme_constant_override("outline_size", 4 if UiProfile.compact else 7)
 	fx_layer.add_child(l)
 	l.reset_size()
 	l.position = _to_layer(pos - l.size * 0.5, fx_layer)
 	var tw := create_tween().set_parallel()
-	tw.tween_property(l, "position:y", l.position.y - 46, _dur(1.0)).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "position:y", l.position.y - (28 if UiProfile.compact else 46), _dur(1.0)).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_property(l, "modulate:a", 0.0, _dur(0.45)).set_delay(_dur(0.55))
 	tw.chain().tween_callback(l.queue_free)
 
@@ -2150,7 +2520,7 @@ func _banner(text: String, color: Color, hold: float) -> void:
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", 24)
+	l.add_theme_font_size_override("font_size", UiProfile.fs(24))
 	l.add_theme_color_override("font_color", color)
 	p.add_child(l)
 	p.modulate.a = 0.0
@@ -2160,8 +2530,7 @@ func _banner(text: String, color: Color, hold: float) -> void:
 	if not is_instance_valid(p):
 		return
 	p.reset_size()
-	var c := center_label.global_position + center_label.size * 0.5
-	p.position = _to_layer(c - p.size * 0.5, fx_layer)
+	p.position = _to_layer(_board_center() - p.size * 0.5, fx_layer)
 	var tw := create_tween()
 	tw.tween_property(p, "modulate:a", 1.0, _dur(0.12))
 	tw.tween_interval(_dur(hold))

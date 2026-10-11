@@ -7,7 +7,7 @@ Card game 1v1 em **Godot 4.3+ (GDScript)**, com UI 100% em `Control` (não há s
 
 Naipes de baralho comum (♠ ♥ ♦ ♣). Acervo de **104 unidades** (dois conjuntos de 2 a A por naipe) e **66 instantâneas**. Baralhos montados pelo jogador (mín. 25 unidades) ou pela IA. Os nomes das cartas misturam fantasia medieval, cyberpunk, steampunk e arcano.
 
-Status: **protótipo v0.9 jogável** (desktop, web e Android) contra a IA e **online 1x1** (lockstep + caixa de correio PHP em hospedagem compartilhada): menu inicial, montador de baralhos, animações e testes headless passando.
+Status: **protótipo v0.9 jogável** (desktop, web e Android) contra a IA e **online 1x1** (lockstep + caixa de correio PHP em hospedagem compartilhada), com **layout próprio para celular** (toque) e para computador: menu inicial, montador de baralhos, animações e testes passando.
 
 ---
 
@@ -18,17 +18,21 @@ godot --headless --path . --import                   # 1ª vez / após criar cla
 godot --headless --path . -s res://tests/sim.gd      # avaliador, baralho, temporizador + 150 partidas padrão + 100 com baralhos da IA (~1 min)
 godot --headless --path . -s res://tests/cards_test.gd  # exercita cada carta do acervo; não pode sair nenhum SCRIPT ERROR
 godot --headless --path . -s res://tests/ablation.gd # peso da habilidade de cada carta (tira a habilidade de uma carta por vez)
-xvfb-run -a godot --path . --rendering-driver opengl3 -s res://tests/ui_smoke.gd   # joga pela UI COM animações (3x) + screenshots em user://
-# sem xvfb abre uma janela. Args depois de "--": speed=0|1|3, sort=0..3, decks=legiao,conspiracao (padrão do teste)
-xvfb-run -a godot --path . --rendering-driver opengl3 -s res://tests/menu_smoke.gd # menu + montador + partida com baralho salvo (usa user://test_decks.json)
+godot --path . --disable-vsync --resolution 1600x900 -s res://tests/ui_smoke.gd   # joga pela UI COM animações (3x) + screenshots em user://
+# Args depois de "--": speed=0|1|3, sort=0..3, decks=legiao,conspiracao (padrão do teste), layout=compact|wide
+godot --path . --disable-vsync --resolution 1600x900 -s res://tests/menu_smoke.gd  # menu + montador + partida com baralho salvo (usa user://test_decks.json)
+godot --path . --disable-vsync --resolution 1200x540 -s res://tests/layout_smoke.gd -- layout=compact  # todas as telas/janelas cabem na tela (e layout=wide em 1600x900)
 php -S 127.0.0.1:8070 -t server                      # servidor online local (rodar em segundo plano antes dos testes abaixo)
 godot --headless --path . -s res://tests/net_test.gd # 2 partidas online IA x IA por HTTP; precisa terminar com ONLINE: OK
-godot --path . -s res://tests/online_ui_smoke.gd -- role=host   # a TELA joga online contra tests/net_bot.gd (role=guest testa me = 1); ~2 min
+godot --path . --disable-vsync -s res://tests/online_ui_smoke.gd -- role=host   # a TELA joga online contra tests/net_bot.gd (role=guest testa me = 1); ~2 min
 ```
+- **Testes com janela: sempre `--disable-vsync`.** Com a janela do teste encoberta, o compositor do GNOME/Wayland segura o vsync em ~1 fps e o teste "trava" (anda 1 quadro por segundo). Não há Xvfb nesta máquina; `--headless` serve para tudo menos screenshots.
+- `layout=compact` força o layout de celular (use `--resolution 1200x540`, proporção de celular); `layout=wide` força o de computador.
 
 **Sempre rode `tests/sim.gd` depois de mexer em regras ou cartas.** Ele precisa terminar com `RESULTADO: OK` (sem travas, todas as partidas acabam) e mostra a vantagem de quem começa e as mãos no showdown.
 **Carta nova ou operação nova: rode `cards_test.gd`.**
 **Mexeu em `Game` (estado, sorteio, ação nova)? `sim.gd` tem o teste de lockstep; mexeu na rede ou em `main.gd`? rode `net_test.gd` e `online_ui_smoke.gd` (host e guest).**
+**Mexeu em layout/telas? rode `layout_smoke.gd` nos dois modos (compact 1200x540 e wide 1600x900): ele falha se alguma janela sair da tela.**
 **Depois de mexer na UI ou em eventos, rode `ui_smoke.gd` e `menu_smoke.gd`** e olhe as screenshots (`ui_*_attack/cast/summon/bounce/...png`, `menu_*.png`) em `~/.local/share/godot/app_userdata/Cadeia de Comando/`. As `ui_*` são tiradas no meio das animações.
 
 O binário do Godot nesta máquina é `~/Documentos/Godot_v4.5.1-stable_linux.x86_64` (não está no PATH).
@@ -41,7 +45,8 @@ python3 -m http.server 8060 --directory build/web                               
 tools/montar_hostinger.sh                                                                  # web + api.php -> build/hostinger/ e build/cadeia-hostinger.zip (guia: HOSTINGER.md)
 ~/Android/Sdk/emulator/emulator -avd Medium_Phone_API_36.0 -no-window -gpu host            # testar o APK (adb install / screencap)
 ```
-- Android precisa de `export/android/java_sdk_path` nas Configurações do Editor (`~/.config/godot/editor_settings-4.5.tres`): JDK do sdkman, `~/.sdkman/candidates/java/21.0.5-tem`.
+- Android precisa de `export/android/java_sdk_path` nas Configurações do Editor (`~/.config/godot/editor_settings-4.5.tres`): JDK do sdkman, `~/.sdkman/candidates/java/21.0.5-tem`. **Às vezes um processo do Godot regrava esse arquivo com o caminho vazio** ("A valid Java SDK path is required"): confira com `grep java_sdk_path` e recoloque.
+- O export de **release** falha sem keystore de release: use `--export-debug`.
 - O emulador precisa de `-gpu host`: com `swiftshader` o CanvasShaderGLES3 estoura `GL_MAX_FRAGMENT_UNIFORM_VECTORS` e a tela fica cinza.
 - `include_filter="*.json"` nos presets (senão o `cards.json` fica fora). `tests/*` é excluído.
 
@@ -65,7 +70,12 @@ ui/main.gd + .tscn    tela de partida montada em código; traduz cliques em aç�
                       Recebe deck_ids/ai_auto da App; sinal menu_requested. Roda sozinha (testes) com padrao x padrao.
 ui/deck_builder.gd    DeckBuilder: acervo filtrável + lista do baralho + salvar/abrir/excluir
 ui/card_view.gd       CardView: desenho de uma carta (só lê estado; apply_snapshot mostra estado intermediário);
-                      CardView.describe(card, game) = texto completo usado na partida e no montador
+                      CardView.describe(card, game) = texto completo usado na partida e no montador.
+                      Face completa (FULL_SIZE 92×112) ou compacta (celular). Toque: clique ao SOLTAR, arrastar rola
+                      o ScrollContainer de cima, toque longo (0,5 s) = right_clicked
+ui/ui_profile.gd      UiProfile (estático): perfil compacto (celular) x amplo; tela base 720×420 x 1600×1000; tema de toque;
+                      tela cheia (F11, Opções, ☰); preferências em user://settings.cfg (layout, fullscreen, anim_speed, sort)
+ui/modal.gd           Modal.confirm(parent, pergunta, botão, ação): confirmação fora da partida (montador)
 net/online_client.gd  OnlineClient (Node, filho persistente da App): HTTP da caixa de correio, sessão em user://online_session.json,
                       URL em user://online.cfg; default_url() (web: api.php ao lado do index.html; senão PUBLIC_URL ou 127.0.0.1:8070)
 server/api.php        caixa de correio GENÉRICA (não conhece o jogo): create/join/send/poll; config.php (SQLite padrão / MySQL)
@@ -100,7 +110,14 @@ REGRAS.md             regras para jogador; README.md = guia + esquema do JSON + 
 6. **A IA joga uma ação por `step()`.** Isso deixa a UI animar entre as ações. A IA guarda `_tried` por turno para não entrar em loop numa ação que falha.
 7. **Uma pessoa age por vez** (regra do online): só `waiting_for()` (se >= 0) ou `current` mandam ações; a troca de mão é sequencial (`waiting_for()` = menor pid pendente); `resign` só na própria vez (`_my_action_time()` na UI). Não crie ação que os dois possam disparar ao mesmo tempo.
 8. **A UI é parametrizada por `me`** (0 ou 1). Use `game.players[me]`, `_opp()`, `_side(pid)` (0 = embaixo, 1 = em cima; as chaves de layout `"%d_%s"` são LADOS da tela, não pids). Nada de 0/1 fixo em `main.gd`.
-9. **Tudo que muda na tela emite um evento.** Uma operação nova no `Game` precisa chamar `_ev(...)` ou `_buff(...)`, senão a UI não anima e a mudança só aparece no redesenho final.
+9. **Dois layouts, um código** (`UiProfile.compact`, sessão 11):
+   - **Compacto (celular):** escolhido quando a menor dimensão da tela < 600 dp (Android: dpi/160; web: devicePixelRatio), ou forçado em Opções / `layout=compact`. A tela base vira 720×420 (1 px virtual ≈ 1 dp num celular), então tudo fica fisicamente grande.
+   - `main.gd` tem `_build_wide` e `_build_compact`. O compacto tem as 6 fileiras + painel lado a lado e a mão numa faixa embaixo (rola arrastando, passo mínimo 44 px). Informações/comparação no painel e Carta/Registro em abas. Pilhas, ordenar, animação, tela cheia, nova partida, desistir e sair ficam no ☰.
+   - `CardView.SIZE`/`HAND_SIZE` são **static var** do perfil (no compacto a largura acompanha a tela: `_apply_compact_metrics`, `_on_viewport_resized`). Inspeção usa sempre `FULL_SIZE`.
+   - Tamanhos de fonte em código compartilhado passam por `UiProfile.fs(n)`; janelas usam `_place_modal` (centro do tabuleiro no desktop, da tela no celular, sempre dentro da tela) e larguras derivadas de `get_viewport_rect()` (nada de 1040 fixo).
+   - **Ações que encerram a partida ou a rodada pedem confirmação** (`_confirm`): Passar a rodada, Nova partida, Desistir, Sair para o menu. Elas não ficam perto dos botões de jogo. O "voltar" do Android abre o ☰.
+   - Cartas usam `MOUSE_FILTER_PASS` (a roda do mouse chega ao ScrollContainer); por isso aceitam o evento (`accept_event`) nos cliques, senão a fileira de baixo também recebe.
+10. **Tudo que muda na tela emite um evento.** Uma operação nova no `Game` precisa chamar `_ev(...)` ou `_buff(...)`, senão a UI não anima e a mudança só aparece no redesenho final.
 
 ### Sinais do Game
 
@@ -485,9 +502,27 @@ Armadilhas encontradas:
 - `pkill -f padrão` casa com a própria linha de comando do bash e mata o shell. Use `pkill -f "tests/net_bot[.]gd"` numa chamada separada.
 - `build/.gdignore` impede o editor de importar os builds (gerava `*.png.import` no pacote).
 
+## Sessão 2026-10-11 (11): layout para celular e computador, tela cheia
+
+Pedido do usuário:
+- Ajustar o design para funcionar bem no celular e no desktop: botões ruins de tocar e toques acidentais (ex.: "Nova partida" logo abaixo do filtro/ordenação).
+- "Tela cheia" que não enche: no celular sobrava espaço e tudo ficava pequeno; no desktop a janela maximizada não era tela cheia.
+
+Diagnóstico (emulador 2400×1080, 420 dpi): a tela base 1600×1000 deixava textos de ~1 mm, fileiras com espaço vazio e o seletor "Ordenar" colado em "Nova partida".
+
+Feito:
+- `UiProfile` (perfil compacto/amplo, tema de toque, tela cheia, preferências) e o layout compacto descrito no princípio 9.
+- `CardView`: face compacta, clique ao soltar, arrastar rola, toque longo inspeciona.
+- Menu ☰ da partida: ordenar e animação viram botões de escolha única (antes, menus suspensos), tela cheia, pilhas (celular), e as ações de encerrar com confirmação. Passar a rodada também confirma.
+- Telas do App: menu em duas colunas no celular, **Opções** (layout Automático/Celular/Computador + tela cheia), online responsivo, botão "Tela cheia" no menu da web, aviso "gire o celular" na web em pé. F11/Alt+Enter alternam a tela cheia; o desktop exportado abre em tela cheia e lembra a escolha.
+- Montador: cartas compactas no celular, toque +1, toque longo −1, arrastar rola, grade centralizada, "Excluir" confirma.
+- Dica atualizada depois de cada jogada (`_after_action_hint`); no celular "Clique" vira "Toque" nas dicas.
+- Testes: `layout_smoke.gd` (todas as telas e janelas cabem na tela, nos dois modos). Verificado no emulador por toque (menu, troca de mão, toque longo, jogar carta, Passar com confirmação, ☰, montador com arrasto) e na web em modo celular (em pé e deitado) e computador.
+
 ## Pendências / próximos passos
-- [ ] **Layout para celular**: em 1080 px de altura física, textos de 11–13 px ficam com menos de 1 mm. Ideias: painel lateral recolhível, tabuleiro com cartas maiores e rolagem, detalhes em janela por toque longo. Tablet é jogável como está.
-- [ ] Toque longo para inspecionar (hoje: botão direito ou o interruptor "Inspecionar ao clicar" só na troca de mão).
+- [ ] Tablet usa o layout de computador (escala ~0,6–0,8): jogável, mas pequeno. Ideia: perfil intermediário ou tela base 1280×800 em tablets.
+- [ ] Arrastar a carta da mão até a fileira (hoje: toque na carta e depois na fileira).
+- [ ] `ItemList` do montador não rola arrastando no celular (só pela barra).
 - [ ] Mais cartas de escolha (ex.: "escolha 1 entre 3 instantâneas do seu cemitério").
 
 - [ ] **Balanceamento por naipe** (baralhos da IA): ♥ Copas 63% contra ♠ Espadas 40%. Escudo + cura + Guardião parecem fortes demais; Espadas precisa de mais alcance contra a Cadeia.
@@ -506,6 +541,10 @@ Armadilhas encontradas:
 - [ ] Online: o host não sabe quando o convidado fechou o app (sem presença). Ideia: `poll` grava `last_seen` por assento.
 
 ## Armadilhas de GDScript neste projeto
+
+- **Janela encoberta + vsync = 1 fps** (GNOME/Wayland): testes com janela parecem travados. Use `--disable-vsync` (ou `--headless`).
+- **`MOUSE_FILTER_STOP` bloqueia a roda do mouse** para o ScrollContainer de cima. Para filhos clicáveis dentro de listas, use `PASS` e `accept_event()` só nos eventos tratados.
+- **`OptionButton` alarga o pai** até o item mais longo: use `fit_to_longest_item = false` + `clip_text = true`.
 
 - Não use `:=` com valores `Variant` (`dict.get()`, índice de array não tipado). Isso gera o erro "cannot infer type". Declare o tipo explicitamente (`var x: int = d.get(...)`).
 - Prefira laços tipados: `for c: Card in arr:`. Use `mini`/`maxi`/`clampi` em vez de `min`/`max` (que retornam Variant).

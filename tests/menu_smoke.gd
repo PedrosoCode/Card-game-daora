@@ -1,7 +1,7 @@
 extends SceneTree
 ## Teste de fumaça do menu e do montador de baralhos (usa um arquivo de
 ## baralhos próprio, não mexe nos baralhos salvos do jogador).
-## xvfb-run godot --path . -s res://tests/menu_smoke.gd   (screenshots em user://)
+## godot --path . --disable-vsync -s res://tests/menu_smoke.gd   (screenshots em user://)
 
 const TEST_PATH := "user://test_decks.json"
 var app: Control
