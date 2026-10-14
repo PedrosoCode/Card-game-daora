@@ -461,7 +461,7 @@ func show_options() -> void:
 	var panel := _panel(16 if c else 32)
 	center.add_child(panel)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10 if c else 16)
+	v.add_theme_constant_override("separation", 6 if c else 16)
 	v.custom_minimum_size = Vector2(520 if c else 640, 0)
 	panel.add_child(v)
 	var title := _label("OPÇÕES", UiProfile.fs(36))
@@ -496,11 +496,36 @@ func show_options() -> void:
 			show_options.call_deferred())
 		row.add_child(b)
 	var auto_is := "Celular" if UiProfile.auto_compact() else "Computador"
-	var note := _label("Automático escolhe pelo tamanho da tela (aqui: %s). Celular: botões e cartas maiores, painel e mão compactos. Computador: tabuleiro completo." % auto_is, UiProfile.fs(14))
+	var note := _label(("Automático: aqui, %s." % auto_is) if c else
+		"Automático escolhe pelo tamanho da tela (aqui: %s). Celular: botões e cartas maiores, painel e mão compactos. Computador: tabuleiro completo." % auto_is, UiProfile.fs(14))
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.modulate = Color(1, 1, 1, 0.7)
 	v.add_child(note)
 
+	v.add_child(_label("Visual das cartas", UiProfile.fs(18)))
+	var vrow := HBoxContainer.new()
+	vrow.add_theme_constant_override("separation", 8)
+	v.add_child(vrow)
+	var vgroup := ButtonGroup.new()
+	for i in 2:
+		var b := Button.new()
+		b.text = ["Pixel art", "Clássico"][i]
+		b.toggle_mode = true
+		b.button_group = vgroup
+		b.button_pressed = (i == 0) == UiProfile.pixel
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size.y = 44
+		var sel := StyleBoxFlat.new()
+		sel.bg_color = Color("#2a2f3a")
+		sel.set_border_width_all(2)
+		sel.border_color = GOLD
+		sel.set_corner_radius_all(4)
+		b.add_theme_stylebox_override("pressed", sel)
+		b.add_theme_color_override("font_pressed_color", GOLD)
+		b.pressed.connect(func():
+			UiProfile.set_pref("pixel", i == 0)
+			UiProfile.apply_layout(get_tree()))
+		vrow.add_child(b)
 	if UiProfile.can_toggle_fullscreen():
 		var fs_row := HBoxContainer.new()
 		v.add_child(fs_row)
@@ -511,5 +536,12 @@ func show_options() -> void:
 		fs.button_pressed = UiProfile.is_fullscreen()
 		fs.toggled.connect(func(on: bool): UiProfile.set_fullscreen(on))
 		fs_row.add_child(fs)
+	v.add_child(_big_button("Galeria de pixel art (teste)", show_pixel_gallery))
 	v.add_child(_big_button("Voltar", show_menu))
 	_swap(root)
+
+
+func show_pixel_gallery() -> void:
+	var g := PixelGallery.new()
+	g.back_requested.connect(show_options)
+	_swap(g)

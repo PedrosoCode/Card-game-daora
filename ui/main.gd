@@ -154,6 +154,7 @@ func _ready() -> void:
 
 func _build_ui() -> void:
 	UiProfile.setup(get_tree())
+	UiProfile.refresh_cards(get_tree())      # a janela pode ter mudado desde o menu
 	var bg := ColorRect.new()
 	bg.color = Color("#14161b")
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -188,9 +189,14 @@ func _build_ui() -> void:
 
 ## Desktop e tablet (tela base 1600×1000): tabuleiro à esquerda, painel à direita.
 func _build_wide(margin: MarginContainer) -> void:
+	# a mão ocupa a largura inteira, embaixo do tabuleiro e do painel
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 4)
+	margin.add_child(outer)
 	var root := HBoxContainer.new()
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_theme_constant_override("separation", 10)
-	margin.add_child(root)
+	outer.add_child(root)
 
 	# ---- coluna do tabuleiro
 	var board := VBoxContainer.new()
@@ -210,12 +216,6 @@ func _build_wide(margin: MarginContainer) -> void:
 
 	for r in ["front", "back", "command"]:
 		board.add_child(_make_row(0, r))
-
-	var hand_title := _label(13)
-	hand_title.text = "Sua mão"
-	hand_title.modulate = Color(1, 1, 1, 0.6)
-	board.add_child(hand_title)
-	_build_hand(board)
 
 	my_info = _label(15)
 	board.add_child(my_info)
@@ -262,6 +262,7 @@ func _build_wide(margin: MarginContainer) -> void:
 	side.add_child(log_title)
 	log_box = _make_log(13)
 	side.add_child(log_box)
+	_build_hand(outer)
 
 
 ## Celular (tela base 720×420, cada pixel virtual ≈ 1 dp): as 6 fileiras e o
@@ -348,10 +349,10 @@ func _build_compact(margin: MarginContainer) -> void:
 ## dedo e o resto rola (arrastando qualquer carta da mão).
 func _build_hand(parent: Control) -> void:
 	hand_scroll = ScrollContainer.new()
-	hand_scroll.custom_minimum_size = Vector2(0, CardView.HAND_SIZE.y + (8 if UiProfile.compact else 14))
+	hand_scroll.custom_minimum_size = Vector2(0, CardView.HAND_SIZE.y + (8 if UiProfile.compact or CardView.pixel else 14))
 	hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	if UiProfile.compact:
-		hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	# rola com a roda do mouse ou arrastando as cartas (sem barra por cima das cartas)
+	hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	parent.add_child(hand_scroll)
 	hand_box = HBoxContainer.new()
 	hand_box.add_theme_constant_override("separation", 6)
@@ -445,14 +446,19 @@ func _apply_compact_metrics() -> void:
 		side_col.custom_minimum_size.x = _compact_side_w()
 
 
-## Web no celular: a barra do navegador some/aparece e a tela muda de largura.
+## A janela mudou (tela cheia, barra do navegador no celular): recalcula o
+## tamanho das cartas (em pixel art o zoom é inteiro) e redesenha.
 func _on_viewport_resized() -> void:
-	if not UiProfile.compact or game == null:
+	if game == null:
 		return
 	var before := CardView.SIZE
-	_apply_compact_metrics()
+	UiProfile.refresh_cards(get_tree())
+	if UiProfile.compact:
+		_apply_compact_metrics()
 	if before != CardView.SIZE:
-		hand_scroll.custom_minimum_size.y = CardView.HAND_SIZE.y + 8
+		hand_scroll.custom_minimum_size.y = CardView.HAND_SIZE.y + (8 if UiProfile.compact or CardView.pixel else 14)
+		for key in row_panels:
+			row_panels[key].custom_minimum_size.y = CardView.SIZE.y + (4 if UiProfile.compact else 8)
 		_refresh()
 
 
@@ -1084,19 +1090,27 @@ func _inspect(c: Card) -> void:
 	top.add_theme_constant_override("separation", 18)
 	viewer_body.add_child(top)
 	# CardView ampliada dentro de um Control simples (containers zeram a escala)
-	var zoom := 1.3 if UiProfile.compact else 2.0
 	var vp := get_viewport_rect().size
 	var holder := Control.new()
-	holder.custom_minimum_size = CardView.FULL_SIZE * zoom
-	var view := CardView.new()
-	view.setup(c, game, CardView.FULL_SIZE)
-	view.scale = Vector2(zoom, zoom)
-	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(view)
+	var tam: Vector2
+	if CardView.pixel:
+		# carta grande em pixel art (160x192), zoom inteiro; as especiais animam
+		var big := _pixel_big(c)
+		tam = PixelCard.SIZE * big.scale.x
+		holder.add_child(big)
+	else:
+		var zoom := 1.3 if UiProfile.compact else 2.0
+		var view := CardView.new()
+		view.setup(c, game, CardView.FULL_SIZE)
+		view.scale = Vector2(zoom, zoom)
+		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(view)
+		tam = CardView.FULL_SIZE * zoom
+	holder.custom_minimum_size = tam
 	top.add_child(holder)
 	var info := RichTextLabel.new()
 	info.bbcode_enabled = true
-	info.custom_minimum_size = Vector2(minf(560.0, vp.x - CardView.FULL_SIZE.x * zoom - 90.0), CardView.FULL_SIZE.y * zoom)
+	info.custom_minimum_size = Vector2(minf(560.0, vp.x - tam.x - 90.0), tam.y)
 	info.add_theme_font_size_override("normal_font_size", UiProfile.fs(15))
 	info.add_theme_font_size_override("bold_font_size", UiProfile.fs(18))
 	info.text = CardView.describe(c, game) + "\n\n[color=#9aa4b8]Onde está agora: %s[/color]" % game.locate(c, me)
@@ -1133,6 +1147,38 @@ func _inspect(c: Card) -> void:
 			hist.append_text(String(log_lines[i]) + "\n")
 	viewer_body.add_child(hist)
 	_show_viewer(c.name)
+
+
+## Carta grande em pixel art para a inspeção, com os stats atuais.
+func _pixel_big(c: Card) -> PixelCard:
+	var snap: Dictionary = game.snapshot(c) if c.is_unit() else {}
+	var suit := String(snap.get("suit", c.suit))
+	var especial := c.is_unit() and suit == c.suit and PixelSheet.exists("especiais/" + c.id)
+	var key: String
+	if especial:
+		key = c.id
+	elif c.is_unit():
+		key = "%s_%d" % [suit, int(snap.get("value", c.base_value))]
+	else:
+		key = "instantanea_" + (c.suit if c.suit != "" else "ouros")
+	var p := PixelCard.new().setup(key, especial)
+	p.show_stats = c.is_unit()
+	if c.is_unit():
+		p.set_stats(int(snap.get("atk", c.atk)), int(snap.get("hp", c.hp)), int(snap.get("armor", 0)))
+		if int(snap.get("poison", 0)) > 0:
+			p.set_status("veneno", true)
+		if int(snap.get("bleed", 0)) > 0:
+			p.set_status("sangramento", true)
+		if int(snap.get("shield", 0)) > 0:
+			p.set_status("escudo", true)
+		if int(snap.get("frozen", 0)) > 0:
+			p.set_status("congelado", true)
+		if c.on_board() and c.exhausted:
+			p.set_status("exausto", true)
+	var s := UiProfile.phys_scale(get_tree())
+	var k := maxf(1.0, floorf((190.0 if UiProfile.compact else 380.0) * s / 192.0 + 0.15))
+	p.scale = Vector2(k / s, k / s)
+	return p
 
 
 func _show_end_panel(info: Dictionary) -> void:
@@ -1410,7 +1456,10 @@ func _fit_hand() -> void:
 	var sep := 4 if UiProfile.compact else 6
 	if width > cw and n > 1 and n * (cw + sep) > width:
 		sep = int(floor((width - cw) / (n - 1) - cw))
-		if UiProfile.compact:
+		if CardView.pixel:
+			# em pixel a barra de stats fica à direita: só a borda (4 px da arte) pode ser coberta
+			sep = maxi(sep, -int(4.0 * CardView.pixel_scale))
+		elif UiProfile.compact:
 			sep = maxi(sep, int(44.0 - cw))
 	hand_box.add_theme_constant_override("separation", sep)
 
@@ -2088,11 +2137,13 @@ func _anim_cast(ev: Dictionary) -> void:
 	var tw := create_tween().set_parallel()
 	tw.tween_property(nv, "position", _to_layer(dest, cards_layer), _dur(0.35)) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw.tween_property(nv, "scale", Vector2(1.35, 1.35), _dur(0.35))
+	var z := CardView.pixel_zoom()
+	tw.tween_property(nv, "scale", Vector2(z, z), _dur(0.35))
 	await tw.finished
 	if not is_instance_valid(nv):
 		return
 	_flash(nv, Color(1, 0.9, 0.5))
+	_pixel_fx("fogo" if _is_fire(c) else "impacto", nv.center())
 	var who := "Você usa" if pid == me else "O oponente usa"
 	_float_text(nv.center() - Vector2(0, CardView.SIZE.y * 0.8), "%s ⚡ %s" % [who, c.name], GOLD, 22)
 	# a do oponente fica mais tempo à vista para dar tempo de ler
@@ -2160,6 +2211,7 @@ func _anim_attack(ev: Dictionary) -> void:
 	await tw.finished
 	if not is_instance_valid(cl):
 		return
+	_pixel_fx("corte", d.center() if is_instance_valid(d) else to)
 	# impacto: o dano deste ataque aparece no instante do golpe
 	if not anim_queue.is_empty():
 		var nxt: Dictionary = anim_queue[0]
@@ -2206,6 +2258,14 @@ func _anim_damage(ev: Dictionary) -> void:
 		if not is_instance_valid(v):
 			return
 	v.apply_snapshot(ev["snap"])
+	var fx_dano := {"attack": "impacto", "poison": "veneno", "bleed": "impacto"}
+	if bool(ev.get("blocked", false)):
+		_pixel_fx("escudo", v.center())
+	elif kind == "effect":
+		var srcc: Card = game.cards_by_uid.get(int(ev.get("src", -1)))
+		_pixel_fx("fogo" if srcc != null and _is_fire(srcc) else "impacto", v.center())
+	else:
+		_pixel_fx(String(fx_dano.get(kind, "impacto")), v.center())
 	if bool(ev.get("blocked", false)):
 		_float_text(v.center(), "BLOQUEADO", TONE_COLORS["armor"], 24)
 		_flash(v, Color(0.6, 0.85, 1))
@@ -2234,7 +2294,17 @@ func _anim_buff(ev: Dictionary) -> void:
 		if not is_instance_valid(v):
 			return
 	v.apply_snapshot(ev["snap"])
-	_float_text(v.center(), String(ev["label"]), col, 20)
+	var tom := String(ev["tone"])
+	var rotulo := String(ev["label"])
+	if tom == "heal":
+		_pixel_fx("cura", v.center())
+	elif tom == "armor":
+		_pixel_fx("escudo", v.center())
+	elif tom == "poison":
+		_pixel_fx("veneno", v.center())
+	elif tom == "control" and rotulo.begins_with("Congel"):
+		_pixel_fx("gelo", v.center())
+	_float_text(v.center(), rotulo, col, 20)
 	_flash(v, col.lerp(Color.WHITE, 0.3))
 	await _wait(0.25)
 
@@ -2246,6 +2316,15 @@ func _anim_destroy(ev: Dictionary) -> void:
 	v.dead = true
 	v.apply_snapshot(ev["snap"])
 	_float_text(v.center() - Vector2(0, 30), "DESTRUÍDA", Color("#ff6060"), 22)
+	if CardView.pixel:
+		_pixel_fx("morte", v.center())
+		var cl0 := _clone(v)
+		v.modulate.a = 0.0
+		cl0.dissolve(_dur(0.55))
+		await _wait(0.6)
+		if is_instance_valid(cl0):
+			cl0.queue_free()
+		return
 	v.modulate = Color(1, 0.25, 0.25)
 	_shake(v)
 	await _wait(0.3)
@@ -2443,6 +2522,24 @@ func _shake(v: Control) -> void:
 	for i in 4:
 		tw.tween_property(v, "position", o + Vector2(randf_range(-6, 6), randf_range(-3, 3)), _dur(0.04))
 	tw.tween_property(v, "position", o, _dur(0.04))
+
+
+## Efeito em pixel art (assets/pixel/fx) centrado em `pos`, na mesma escala das
+## cartas (pixels inteiros). No visual clássico não faz nada.
+func _pixel_fx(nome: String, pos: Vector2) -> void:
+	if not CardView.pixel or anim_speed <= 0.0:
+		return
+	var anim := PixelAnim.new().setup(PixelSheet.load_sheet("fx/" + nome), false)
+	anim.scale = Vector2(CardView.pixel_scale, CardView.pixel_scale)
+	fx_layer.add_child(anim)
+	anim.position = _to_layer(pos - anim.size * CardView.pixel_scale / 2.0, fx_layer)
+	anim.finished.connect(anim.queue_free)
+	anim.play()
+
+
+func _is_fire(c: Card) -> bool:
+	var n := c.name.to_lower()
+	return n.contains("fogo") or n.contains("piro") or n.contains("chama") or n.contains("incend")
 
 
 func _float_text(pos: Vector2, text: String, color: Color, font_size: int = 24) -> void:

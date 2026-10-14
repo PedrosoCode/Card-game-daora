@@ -61,7 +61,10 @@ func _build() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var c := UiProfile.compact
+	UiProfile.refresh_cards(get_tree())
 	var face := Vector2(100, 50) if c else CardView.FULL_SIZE
+	if CardView.pixel:
+		face = CardView.SIZE                  # carta de mesa em pixel art (o nome vai embaixo)
 	cell_w = face.x
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -122,6 +125,12 @@ func _build() -> void:
 			_remove(cid))
 		view.hovered.connect(func(_v: CardView): _show(cid))
 		cell.add_child(view)
+		if CardView.pixel:
+			var nome := _label(cards[cid].name, 10 if c else 11)
+			nome.clip_text = true
+			nome.custom_minimum_size = Vector2(face.x, 0)
+			nome.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cell.add_child(nome)
 		var cnt := _label("", 10 if c else 12)
 		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		# o rótulo não pode alargar a célula além da carta (quebra as colunas)

@@ -1,0 +1,37 @@
+{ "frames": [
+   {
+    "filename": "mini_icons.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 128, "h": 8 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 8 },
+    "sourceSize": { "w": 128, "h": 8 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3.18.6-x64",
+  "format": "RGBA8888",
+  "size": { "w": 128, "h": 8 },
+  "scale": "1",
+  "slices": [
+   { "name": "atq", "keys": [{ "frame": 0, "bounds": {"x": 0, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "hp", "keys": [{ "frame": 0, "bounds": {"x": 8, "y": 1, "w": 7, "h": 6 } }] },
+   { "name": "arm", "keys": [{ "frame": 0, "bounds": {"x": 16, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "veneno", "keys": [{ "frame": 0, "bounds": {"x": 24, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "sangramento", "keys": [{ "frame": 0, "bounds": {"x": 32, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "escudo", "keys": [{ "frame": 0, "bounds": {"x": 40, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "congelado", "keys": [{ "frame": 0, "bounds": {"x": 48, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "exausto", "keys": [{ "frame": 0, "bounds": {"x": 56, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "temporizador", "keys": [{ "frame": 0, "bounds": {"x": 65, "y": 1, "w": 5, "h": 6 } }] },
+   { "name": "guardiao", "keys": [{ "frame": 0, "bounds": {"x": 72, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "investida", "keys": [{ "frame": 0, "bounds": {"x": 80, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "alcance", "keys": [{ "frame": 0, "bounds": {"x": 88, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "furtivo", "keys": [{ "frame": 0, "bounds": {"x": 96, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "furia", "keys": [{ "frame": 0, "bounds": {"x": 104, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "roubo_vida", "keys": [{ "frame": 0, "bounds": {"x": 112, "y": 0, "w": 7, "h": 7 } }] },
+   { "name": "silenciada", "keys": [{ "frame": 0, "bounds": {"x": 120, "y": 0, "w": 7, "h": 7 } }] }
+  ]
+ }
+}

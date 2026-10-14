@@ -1,0 +1,158 @@
+{ "frames": [
+   {
+    "filename": "mercador_rei 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 1.aseprite",
+    "frame": { "x": 160, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 2.aseprite",
+    "frame": { "x": 320, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 3.aseprite",
+    "frame": { "x": 480, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 4.aseprite",
+    "frame": { "x": 640, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 5.aseprite",
+    "frame": { "x": 800, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 6.aseprite",
+    "frame": { "x": 960, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 7.aseprite",
+    "frame": { "x": 1120, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 8.aseprite",
+    "frame": { "x": 1280, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 9.aseprite",
+    "frame": { "x": 1440, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 10.aseprite",
+    "frame": { "x": 1600, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 11.aseprite",
+    "frame": { "x": 1760, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 12.aseprite",
+    "frame": { "x": 1920, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 13.aseprite",
+    "frame": { "x": 2080, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 14.aseprite",
+    "frame": { "x": 2240, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "mercador_rei 15.aseprite",
+    "frame": { "x": 2400, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3.18.6-x64",
+  "image": "mercador_rei.png",
+  "format": "RGBA8888",
+  "size": { "w": 2560, "h": 192 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "idle", "from": 0, "to": 15, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

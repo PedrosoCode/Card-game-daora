@@ -71,6 +71,15 @@ func _run() -> void:
 	_fits(m.viewer_panel, "inspeção")
 	await _shot("inspecao")
 	m._close_viewer()
+	# carta especial animada (o Baralho Padrão tem o Lich)
+	for c: Card in m.game.cards_by_uid.values():
+		if c.id == "lich":
+			m._inspect(c)
+			await _frames(3)
+			_fits(m.viewer_panel, "inspeção do Lich")
+			await _shot("inspecao_lich")
+			m._close_viewer()
+			break
 	m._show_end_panel({"match_winner": m.me, "gems": [2, 0], "round": 2})
 	await _frames(3)
 	_fits(m.end_panel, "painel de fim")

@@ -31,6 +31,17 @@ static var SIZE := FULL_SIZE
 static var HAND_SIZE := FULL_SIZE
 static var compact := false
 
+## Visual em pixel art (UiProfile.pixel): a carta de mesa de 48x60 px da arte,
+## desenhada com um número INTEIRO de pixels da tela por pixel da arte (pixel_k).
+const MINI := Vector2(48, 60)
+const PIXEL_VALOR := {11: "J", 12: "Q", 13: "K", 14: "A"}
+const PIXEL_TIPO := {11: "j", 12: "q", 13: "k", 14: "a"}
+const PIXEL_KW := ["guardiao", "investida", "alcance", "furtivo", "furia", "roubo_vida"]
+const DISSOLVER := preload("res://ui/pixel/dissolver.gdshader")
+static var pixel := false
+static var pixel_k := 2.0          # pixels da tela por pixel da arte
+static var pixel_scale := 1.0      # pixels virtuais por pixel da arte (= pixel_k / escala da tela)
+
 var card: Card
 var game: Game
 var face_size := FULL_SIZE
@@ -49,17 +60,45 @@ var _long_done := false
 var _press_pos := Vector2.ZERO
 var _press_id := 0
 var _scroll_acc := Vector2.ZERO
+# modo pixel
+var _pix: Control
+var _state := ""
+var _frame := 0
+var _frame_t := 0.0
+var _anim: PixelSheet
+var _mat: ShaderMaterial
 
 
-static func configure(is_compact: bool) -> void:
+## phys: pixels da tela por pixel virtual (escala do stretch).
+static func configure(is_compact: bool, phys := 1.0, use_pixel := false) -> void:
 	compact = is_compact
+	pixel = use_pixel
 	SIZE = Vector2(96, 50) if compact else FULL_SIZE
 	HAND_SIZE = Vector2(76, 56) if compact else FULL_SIZE
+	if pixel:
+		# altura da fileira (virtual) -> pixels da tela -> maior zoom inteiro que cabe;
+		# se o inteiro ficaria muito pequeno (janela baixa), usa a escala exata
+		var alvo := (50.0 if compact else 112.0) * phys
+		var ratio := alvo / MINI.y
+		var k := floorf(ratio + 0.15)
+		if k < 2.0 and ratio >= 1.5:
+			k = ratio
+		pixel_k = maxf(1.0, k)
+		pixel_scale = pixel_k / maxf(phys, 0.01)
+		SIZE = (MINI * pixel_scale).floor()
+		HAND_SIZE = SIZE
+
+
+## Zoom "redondo" para destacar uma carta em pixel (k+1)/k: os pixels continuam inteiros.
+static func pixel_zoom() -> float:
+	if pixel and is_equal_approx(pixel_k, roundf(pixel_k)):
+		return (pixel_k + 1.0) / pixel_k
+	return 1.35
 
 
 ## Compacto: a largura das cartas do tabuleiro acompanha a largura disponível.
 static func set_board_width(w: float) -> void:
-	if compact:
+	if compact and not pixel:
 		SIZE.x = clampf(floorf(w), 70.0, 110.0)
 		HAND_SIZE.x = clampf(floorf(w * 0.8), 64.0, 84.0)
 
@@ -68,6 +107,9 @@ static func set_board_width(w: float) -> void:
 func setup(c: Card, g: Game, face := Vector2.ZERO) -> void:
 	card = c
 	game = g
+	if pixel:
+		_setup_pixel()
+		return
 	face_size = face if face != Vector2.ZERO else SIZE
 	custom_minimum_size = face_size
 	# PASS: o que a carta não usa (roda do mouse) chega ao ScrollContainer de cima
@@ -190,6 +232,9 @@ func apply_snapshot(snap: Dictionary) -> void:
 	if not card.is_unit():
 		return
 	last_snap = snap
+	if pixel:
+		_pix.queue_redraw()
+		return
 	var ev: int = snap["value"]
 	var suit: String = snap["suit"]
 	_top.text = Game.card_label(ev, suit)
@@ -240,6 +285,10 @@ func apply_snapshot(snap: Dictionary) -> void:
 
 ## "", "selected", "target", "ready"
 func set_state(state: String) -> void:
+	if pixel:
+		_state = state
+		_pix.queue_redraw()
+		return
 	match state:
 		"selected":
 			_sb.border_color = Color("#ffd84a")
@@ -353,3 +402,125 @@ func _lbl(text: String, font_size: int) -> Label:
 	l.add_theme_font_size_override("font_size", font_size)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+# ================================================================ modo pixel art
+
+func _setup_pixel() -> void:
+	face_size = SIZE
+	custom_minimum_size = SIZE
+	mouse_filter = Control.MOUSE_FILTER_PASS
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	_pix = Control.new()
+	_pix.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pix.use_parent_material = true
+	_pix.draw.connect(_draw_pixel)
+	add_child(_pix)
+	var esp := "mini/especial_" + card.id
+	if PixelSheet.exists(esp):
+		_anim = PixelSheet.load_sheet(esp)
+	set_process(_anim != null)
+	if card.is_unit():
+		last_snap = game.snapshot(card)
+	mouse_entered.connect(func(): hovered.emit(self))
+	gui_input.connect(_on_input)
+
+
+func _process(delta: float) -> void:
+	if _anim == null:
+		return
+	_frame_t += delta
+	if _frame_t >= _anim.durations[_frame]:
+		_frame_t -= _anim.durations[_frame]
+		_frame = (_frame + 1) % _anim.regions.size()
+		_pix.queue_redraw()
+
+
+func _slice_name(suit: String, value: int) -> String:
+	if not card.is_unit():
+		return "instantanea_" + (card.suit if card.suit != "" else "ouros")
+	return "%s_%s" % [suit, PIXEL_TIPO.get(value, "n")]
+
+
+func _draw_pixel() -> void:
+	var cartas := PixelSheet.load_sheet("mini/cartas")
+	var dig := PixelSheet.load_sheet("ui/digitos")
+	var ico := PixelSheet.load_sheet("ui/icones_mini")
+	_pix.draw_set_transform(Vector2.ZERO, 0.0, Vector2(pixel_scale, pixel_scale))
+	var snap := last_snap
+	var unit := card.is_unit()
+	var suit: String = snap.get("suit", card.suit) if unit else card.suit
+	var value: int = int(snap.get("value", card.base_value)) if unit else 0
+	# arte (animada nas especiais; o naipe/valor atual escolhe a carta mini)
+	if _anim != null and unit and suit == card.suit:
+		_pix.draw_texture_rect_region(_anim.texture, Rect2(Vector2.ZERO, MINI), _anim.regions[_frame])
+	else:
+		var r: Rect2 = cartas.slices.get(_slice_name(suit, value), cartas.slices["verso"])
+		_pix.draw_texture_rect_region(cartas.texture, Rect2(Vector2.ZERO, MINI), r)
+	# valor na aba (verde/vermelho quando modificado)
+	var vcor := Color.WHITE
+	if unit and value > card.base_value:
+		vcor = Color("#a8ffa8")
+	elif unit and value < card.base_value:
+		vcor = Color("#ffaaaa")
+	dig.draw_text(_pix, String(PIXEL_VALOR.get(value, str(value))) if unit else "Z", Vector2(9.0, 8.5),
+		vcor if unit else Color("#ffd700"), 1.0)
+	if unit:
+		var hp := int(snap.get("hp", card.hp))
+		var base_hp := int(card.def.get("hp", 0))
+		var hcor := Color("#ffb0b0") if hp < base_hp else (Color("#a8ffa8") if hp > base_hp else Color.WHITE)
+		dig.draw_text(_pix, str(int(snap.get("atk", card.atk))), Vector2(40.5, 15.0), Color.WHITE, 1.0)
+		dig.draw_text(_pix, str(hp), Vector2(40.5, 32.0), hcor, 1.0)
+		if int(snap.get("armor", 0)) > 0:
+			ico.draw_slice(_pix, "arm", Vector2(40.5, 42.0))
+			dig.draw_text(_pix, str(int(snap["armor"])), Vector2(40.5, 51.0), Color.WHITE, 1.0)
+		# estados e palavras-chave: linha de ícones no pé da arte
+		var marcas: Array[String] = []
+		if int(snap.get("poison", 0)) > 0:
+			marcas.append("veneno")
+		if int(snap.get("bleed", 0)) > 0:
+			marcas.append("sangramento")
+		if int(snap.get("shield", 0)) > 0:
+			marcas.append("escudo")
+		if int(snap.get("frozen", 0)) > 0:
+			marcas.append("congelado")
+		var muda := bool(snap.get("silenced", false))
+		if muda:
+			marcas.append("silenciada")
+		else:
+			for k in card.keywords:
+				if PIXEL_KW.has(k):
+					marcas.append(k)
+		var timers: Dictionary = snap.get("timers", {})
+		for k in timers:
+			if int(timers[k]) > 0:
+				marcas.append("temporizador")
+				break
+		var xs := [7.0, 14.5, 22.0, 29.5]
+		for i in mini(marcas.size(), 8):
+			ico.draw_slice(_pix, marcas[i], Vector2(xs[i % 4], 52.0 - 8.0 * (i / 4)))
+		if card.on_board() and card.exhausted:
+			ico.draw_slice(_pix, "exausto", Vector2(28.5, 7.5))
+		if muda or int(snap.get("frozen", 0)) > 0:
+			_pix.draw_rect(Rect2(3, 3, 30, 54), Color(0.55, 0.8, 1.0, 0.18) if not muda else Color(0.2, 0.2, 0.25, 0.4))
+	# borda de estado (1 pixel da arte por cima da moldura)
+	var bc := {"selected": Color("#ffd84a"), "target": Color("#ff5a5a"), "ready": Color("#6fd3ff")}
+	if bc.has(_state):
+		_pix.draw_rect(Rect2(0.5, 0.5, MINI.x - 1.0, MINI.y - 1.0), bc[_state], false, 1.0)
+		if _state != "ready":
+			_pix.draw_rect(Rect2(1.5, 1.5, MINI.x - 3.0, MINI.y - 3.0), bc[_state], false, 1.0)
+
+
+## Morte em pixel art: a carta se desfaz de cima para baixo (shader de pontilhado).
+func dissolve(seconds: float) -> void:
+	if not pixel:
+		return
+	_mat = ShaderMaterial.new()
+	_mat.shader = DISSOLVER
+	_mat.set_shader_parameter("cell", pixel_k)
+	_mat.set_shader_parameter("card_height", size.y)
+	_mat.set_shader_parameter("edge_color", Color("#ffb070"))
+	material = _mat
+	var tw := create_tween()
+	tw.tween_method(func(v: float): _mat.set_shader_parameter("progress", v), 0.0, 1.0, seconds)

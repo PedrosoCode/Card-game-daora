@@ -1,0 +1,158 @@
+{ "frames": [
+   {
+    "filename": "lich 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 1.aseprite",
+    "frame": { "x": 160, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 2.aseprite",
+    "frame": { "x": 320, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 3.aseprite",
+    "frame": { "x": 480, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 4.aseprite",
+    "frame": { "x": 640, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 5.aseprite",
+    "frame": { "x": 800, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 6.aseprite",
+    "frame": { "x": 960, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 7.aseprite",
+    "frame": { "x": 1120, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 8.aseprite",
+    "frame": { "x": 1280, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 9.aseprite",
+    "frame": { "x": 1440, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 10.aseprite",
+    "frame": { "x": 1600, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 11.aseprite",
+    "frame": { "x": 1760, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 12.aseprite",
+    "frame": { "x": 1920, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 13.aseprite",
+    "frame": { "x": 2080, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 14.aseprite",
+    "frame": { "x": 2240, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   },
+   {
+    "filename": "lich 15.aseprite",
+    "frame": { "x": 2400, "y": 0, "w": 160, "h": 192 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 192 },
+    "sourceSize": { "w": 160, "h": 192 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3.18.6-x64",
+  "image": "lich.png",
+  "format": "RGBA8888",
+  "size": { "w": 2560, "h": 192 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "idle", "from": 0, "to": 15, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

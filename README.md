@@ -38,6 +38,12 @@ Notas:
 
 **Controles no computador:** clique numa carta da mão e depois numa fileira sua (destacada em verde), ou em **Descartar**. Para atacar ou usar um ativo, clique na sua unidade e depois em **Atacar** ou **Usar efeito**, e escolha o alvo (borda vermelha). Instantâneas (⚡) com alvo pedem o alvo; sem alvo, clique duas vezes na carta para usar. **No Registro, clique no nome de uma carta** para inspecioná-la: carta ampliada, efeitos, onde está e o histórico dela (quem a atingiu, como morreu). Os botões **Meu cemitério / Cemitério inimigo / Meu baralho** mostram essas pilhas (o baralho sai ordenado, sem revelar a ordem de compra). Botão direito ou Esc cancela. No **☰ Menu** ficam a **Animação** (normal, rápida, desligada) e o **Ordenar cartas**, que organiza a mão e o tabuleiro por naipe, valor, HP ou na ordem das jogadas (só muda a exibição). As duas escolhas ficam salvas. **Nova partida**, **Desistir** e **Sair para o menu** também ficam lá, longe dos botões de jogo e com confirmação.
 
+## Arte em pixel
+
+A partida usa cartas em pixel art: a carta de mesa (48×60) nas fileiras e na mão, a carta grande (160×192) na inspeção, as especiais animadas (Lich, Mercador-Rei) e efeitos em pixel (corte, impacto, fogo, cura, veneno, escudo, gelo, morte). Os pixels ficam sempre inteiros (×2 no celular e no desktop 1080p). O visual antigo continua disponível em **Opções > Visual das cartas > Clássico**.
+
+Tudo sai dos arquivos do Aseprite em `~/Imagens/arts/project cards/`, pelo gerador `tools/pixel_art/gerar.py`, que exporta para `assets/pixel/`. **Opções > Galeria de pixel art (teste)** mostra o conjunto inteiro e os efeitos sobre uma carta. Detalhes no `CLAUDE.md` (sessões 12 e 13).
+
 ## Modo online
 
 **Jogar online** no menu: um jogador clica em **Criar sala** e passa o código de 5 letras; o outro digita o código e clica em **Entrar**. Funciona entre navegador, desktop e APK, desde que todos usem o mesmo servidor.

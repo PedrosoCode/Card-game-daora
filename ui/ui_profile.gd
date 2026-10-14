@@ -18,6 +18,7 @@ const LAYOUTS := ["auto", "compact", "wide"]
 const LAYOUT_NAMES := ["Automático", "Celular", "Computador"]
 
 static var compact := false
+static var pixel := true          # visual das cartas em pixel art (Opções)
 static var _done := false
 static var _cfg: ConfigFile
 
@@ -39,9 +40,27 @@ static func apply_layout(tree: SceneTree) -> void:
 		if a.begins_with("layout="):
 			pref = a.substr(7)
 	compact = pref == "compact" or (pref == "auto" and auto_compact())
+	pixel = bool(get_pref("pixel", true))
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("pixel="):
+			pixel = a.substr(6) != "0"
 	tree.root.content_scale_size = COMPACT_BASE if compact else WIDE_BASE
 	tree.root.theme = _touch_theme() if compact else null
-	CardView.configure(compact)
+	refresh_cards(tree)
+
+
+## Pixels da tela por pixel virtual (stretch canvas_items + expand).
+static func phys_scale(tree: SceneTree) -> float:
+	var ws := Vector2(tree.root.size)
+	var base := Vector2(tree.root.content_scale_size)
+	if base.x <= 0.0 or base.y <= 0.0 or ws.x <= 0.0 or ws.y <= 0.0:
+		return 1.0
+	return minf(ws.x / base.x, ws.y / base.y) * tree.root.content_scale_factor
+
+
+## Recalcula o tamanho das cartas (a escala da tela muda com a janela).
+static func refresh_cards(tree: SceneTree) -> void:
+	CardView.configure(compact, phys_scale(tree), pixel)
 
 
 ## Celular? Menor dimensão da tela, em dp, abaixo de COMPACT_BELOW_DP.

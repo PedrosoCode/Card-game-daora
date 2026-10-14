@@ -15,7 +15,7 @@ Status: **protótipo v0.9 jogável** (desktop, web e Android) contra a IA e **on
 
 ```bash
 godot --headless --path . --import                   # 1ª vez / após criar class_name novo (gera cache de classes)
-godot --headless --path . -s res://tests/sim.gd      # avaliador, baralho, temporizador + 150 partidas padrão + 100 com baralhos da IA (~1 min)
+godot --headless --path . -s res://tests/sim.gd      # avaliador, baralho, temporizador, lockstep + 150 partidas padrão + 100 com baralhos da IA (~4 min)
 godot --headless --path . -s res://tests/cards_test.gd  # exercita cada carta do acervo; não pode sair nenhum SCRIPT ERROR
 godot --headless --path . -s res://tests/ablation.gd # peso da habilidade de cada carta (tira a habilidade de uma carta por vez)
 godot --path . --disable-vsync --resolution 1600x900 -s res://tests/ui_smoke.gd   # joga pela UI COM animações (3x) + screenshots em user://
@@ -76,6 +76,12 @@ ui/card_view.gd       CardView: desenho de uma carta (só lê estado; apply_snap
 ui/ui_profile.gd      UiProfile (estático): perfil compacto (celular) x amplo; tela base 720×420 x 1600×1000; tema de toque;
                       tela cheia (F11, Opções, ☰); preferências em user://settings.cfg (layout, fullscreen, anim_speed, sort)
 ui/modal.gd           Modal.confirm(parent, pergunta, botão, ação): confirmação fora da partida (montador)
+ui/pixel/             arte em pixel (em teste): PixelSheet (PNG+JSON do Aseprite), PixelAnim, PixelCard
+                      (carta 160x192 + stats desenhados + clarão/tremida/gelo/dissolver), dissolver.gdshader
+ui/pixel_gallery.gd   galeria de teste (Opções > Galeria de pixel art), em escala INTEIRA (base 960x540)
+                      (a partida usa o CardView em modo pixel: ver sessão 13)
+assets/pixel/         exportado pelo gerador: cartas/, especiais/, fx/, ui/ (ícones e dígitos com fatias)
+tools/pixel_art/      gerador da arte em pixel (Python + Aseprite em linha de comando); tools/ tem .gdignore
 net/online_client.gd  OnlineClient (Node, filho persistente da App): HTTP da caixa de correio, sessão em user://online_session.json,
                       URL em user://online.cfg; default_url() (web: api.php ao lado do index.html; senão PUBLIC_URL ou 127.0.0.1:8070)
 server/api.php        caixa de correio GENÉRICA (não conhece o jogo): create/join/send/poll; config.php (SQLite padrão / MySQL)
@@ -519,7 +525,49 @@ Feito:
 - Dica atualizada depois de cada jogada (`_after_action_hint`); no celular "Clique" vira "Toque" nas dicas.
 - Testes: `layout_smoke.gd` (todas as telas e janelas cabem na tela, nos dois modos). Verificado no emulador por toque (menu, troca de mão, toque longo, jogar carta, Passar com confirmação, ☰, montador com arrasto) e na web em modo celular (em pé e deitado) e computador.
 
+## Sessão 2026-10-11 (12): arte em pixel (cartas base, especiais animadas, efeitos)
+
+Pedido do usuário: continuar o trabalho de pixel art dele (templates de Ouros 2–10 em `~/Imagens/arts/project cards/`), criar as cartas base, 1–2 cartas especiais animadas (estilo cartas premium do Gwent) e animações de efeito. A barra preta à direita da carta é para os ícones de stats.
+
+**Fonte da verdade = os .aseprite.** O Aseprite é o da Steam: `~/.local/share/Steam/steamapps/common/Aseprite/aseprite` (funciona em `-b`, com `--script` Lua).
+- Arte original do usuário (NUNCA sobrescrever): `card frame base.aseprite` (moldura, dígitos 0–9 de 9 px, 4 ícones de naipe), `diamond/diamond_2..10` (posições dos naipes), `icons/diamond_icon_32_32`, `rascinho_board`.
+- Gerado (novo): `base/<diamond|heart|spade|club>/<naipe>_<2..10|J|Q|K|A>.aseprite`, `base/instant/instant_<naipe>`, `base/back`, `special/{lich,mercador_rei}` (tag `idle`, 16 quadros), `fx/fx_<efeito>` (tag `play`), `icons/{stats_icons,digits}` (fatias nomeadas). Camadas das cartas: `frame`, `icon`/`arte`, `numbers`, `stats`, `stats_valores` (números de exemplo; não vão para o jogo).
+- Prévias: `~/Imagens/arts/project cards/previews/` (GIFs ×3 e `cartas_base.png`).
+
+Gerador (`tools/pixel_art/`):
+```bash
+python3 tools/pixel_art/gerar.py              # gera o que falta (não sobrescreve .aseprite existentes) e exporta
+python3 tools/pixel_art/gerar.py --so-exportar # depois de editar .aseprite à mão: só reexporta para assets/pixel
+python3 tools/pixel_art/gerar.py --refazer     # gera tudo de novo (perde edições manuais nos gerados!)
+godot --headless --path . --import             # depois de exportar (importa os PNG novos)
+```
+- `fonte.py` lê a arte original (exporta camadas pelo Aseprite); `desenho.py` (sprites em texto, recolorir, contorno, **Scale2x/Scale3x** para ampliar sem serrilhar, glifos J/Q/K/A/+/-/raio no estilo dos dígitos); `icones.py` (stats, estados, emblemas, moeda); `cartas.py` (cartas base); `especiais.py` (Lich, Mercador-Rei); `efeitos.py` (corte, impacto, fogo, cura, veneno, escudo, gelo, morte); `gerar.py` (orquestra, gera o Lua, exporta).
+- Medidas da carta (160×192): arte `11..119 × 12..180` (máscara = pixels `#8a7611/#ad9415` da moldura, exclui as abas), barra de stats centro x=141.5, ATQ ícone y=20 / número y=34, HP ícone y=52 / número y=65, armadura y=84/98, estados a partir de y=118 (13 px cada). Valores nos cantos centrados em (15.5, 13) e (115.5, 179).
+- Paletas da área da arte: Ouros a do usuário; Copas vinho; Paus verde; **Espadas "aço" (#56627a)** — azul-marinho deixava o naipe azul ilegível.
+- **Armadilha do Aseprite CLI:** opções de camada (`--ignore-layer`, `--layer`) valem para o arquivo que vem DEPOIS delas.
+- Animações em laço: tudo é função periódica do quadro (senos com frequência inteira, partículas com velocidade × 16 = ciclo) para o laço fechar sem emenda; transparências por pontilhado Bayer.
+
+Godot: a galeria usa `Window.content_scale_stretch = INTEGER` com base 960×540 (pixels sem borrar) e restaura o layout normal ao sair (`UiProfile.apply_layout`). Teste: `tests/pixel_gallery_smoke.gd`. Testado no emulador (toque, escala ×2).
+
+## Sessão 2026-10-11 (13): arte em pixel na partida
+
+Pedido do usuário: aplicar a arte em pixel ao jogo.
+
+- **Carta de mesa (mini 48×60)** gerada por `tools/pixel_art/mini.py`: atlas `assets/pixel/mini/cartas` com fatias `<naipe>_<n|a|j|q|k>`, `instantanea_<naipe>`, `verso`; especiais mini animadas `mini/especial_<id>` (Lich, Mercador-Rei); ícones mini `ui/icones_mini` (stats, estados e palavras-chave). O jogo desenha o valor na aba, ATQ/HP/armadura na barra e os ícones no pé da arte.
+- **`CardView` em modo pixel** (`CardView.pixel`, vindo de `UiProfile.pixel`, preferência "Visual das cartas" nas Opções; `pixel=0` na linha de comando força o clássico). Mesma interface de sempre (setup/apply_snapshot/set_state/dissolve), então animações, janelas e online não mudaram.
+  - **Pixels inteiros sem mudar o stretch do jogo:** `pixel_k` = pixels da TELA por pixel da arte (inteiro, a partir da altura da fileira × `UiProfile.phys_scale()`), `pixel_scale` = `pixel_k / escala da tela` em pixels virtuais. Se o inteiro ficaria < 2 e a razão ≥ 1,5, usa a razão exata (janela baixa). Recalculado em `UiProfile.refresh_cards()` (início da partida e `_on_viewport_resized`).
+  - Celular (2400×1080): k = 2 → carta de 120 px físicos. Desktop 1080p: k = 2.
+- **Efeitos** (`_pixel_fx(nome, pos)` em main.gd, mesma escala das cartas): corte no alvo do ataque; impacto no dano de ataque; fogo/impacto no dano de efeito (`_is_fire`: Bola de Fogo, Piromante...); veneno; escudo (bloqueio e +armadura); cura; gelo (Congelada); instantânea lançada cresce em zoom inteiro `(k+1)/k` com impacto/fogo; **destruição** = caveira subindo + carta se desfazendo de cima para baixo (shader) no lugar de voar ao cemitério.
+- **Inspeção** = carta grande 160×192 (`PixelCard`, `_pixel_big`), especiais animadas.
+- **Mão no desktop em largura total** (embaixo do tabuleiro e do painel). Em pixel a sobreposição máxima é de 4 px da arte (a barra de stats fica à direita); o que não cabe rola (roda do mouse ou arrastando).
+- Montador em pixel: carta mini + nome embaixo.
+- Testado: ui_smoke (pixel e clássico, wide e compact), menu, layout (4 tamanhos, com a inspeção do Lich), online (host wide, guest compact), galeria; e no emulador (troca de mão, jogar o Lich na Cadeia, toque longo → carta grande animada).
+
 ## Pendências / próximos passos
+- [ ] Nomes das cartas na mesa: a carta mini não tem nome (aparece ao tocar/passar o mouse e na inspeção).
+- [ ] Ícones de palavras-chave/estados também na carta grande da inspeção (hoje só os de estado).
+- [ ] Mais especiais animadas (as 2 de teste: Lich, Mercador-Rei) e arte própria para as instantâneas.
+- [ ] Ícones de estado que faltam (silenciada, guardião, investida, alcance, furtivo, fúria, roubo de vida) e fonte pixel para textos.
 - [ ] Tablet usa o layout de computador (escala ~0,6–0,8): jogável, mas pequeno. Ideia: perfil intermediário ou tela base 1280×800 em tablets.
 - [ ] Arrastar a carta da mão até a fileira (hoje: toque na carta e depois na fileira).
 - [ ] `ItemList` do montador não rola arrastando no celular (só pela barra).

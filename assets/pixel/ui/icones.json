@@ -1,0 +1,31 @@
+{ "frames": [
+   {
+    "filename": "stats_icons.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 160, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 160, "h": 16 },
+    "sourceSize": { "w": 160, "h": 16 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3.18.6-x64",
+  "format": "RGBA8888",
+  "size": { "w": 160, "h": 16 },
+  "scale": "1",
+  "slices": [
+   { "name": "atq", "keys": [{ "frame": 0, "bounds": {"x": 2, "y": 2, "w": 12, "h": 12 } }] },
+   { "name": "hp", "keys": [{ "frame": 0, "bounds": {"x": 19, "y": 4, "w": 9, "h": 8 } }] },
+   { "name": "arm", "keys": [{ "frame": 0, "bounds": {"x": 35, "y": 3, "w": 9, "h": 10 } }] },
+   { "name": "veneno", "keys": [{ "frame": 0, "bounds": {"x": 51, "y": 4, "w": 9, "h": 8 } }] },
+   { "name": "sangramento", "keys": [{ "frame": 0, "bounds": {"x": 67, "y": 4, "w": 9, "h": 8 } }] },
+   { "name": "escudo", "keys": [{ "frame": 0, "bounds": {"x": 83, "y": 3, "w": 9, "h": 9 } }] },
+   { "name": "congelado", "keys": [{ "frame": 0, "bounds": {"x": 99, "y": 3, "w": 9, "h": 9 } }] },
+   { "name": "exausto", "keys": [{ "frame": 0, "bounds": {"x": 115, "y": 4, "w": 9, "h": 8 } }] },
+   { "name": "temporizador", "keys": [{ "frame": 0, "bounds": {"x": 132, "y": 4, "w": 7, "h": 8 } }] },
+   { "name": "raio", "keys": [{ "frame": 0, "bounds": {"x": 148, "y": 2, "w": 8, "h": 11 } }] }
+  ]
+ }
+}
